@@ -22,3 +22,6 @@ program/**/*.rs.bk
 .agents/
 skills-lock.json
 .hackathon/
+
+# Internal planning docs (keep local)
+Frontend.md

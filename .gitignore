@@ -1,0 +1,19 @@
+.DS_Store
+.idea
+.vscode
+
+# Node
+app/node_modules
+app/dist
+app/.env.local
+
+# Anchor / Rust
+program/.anchor
+program/target
+program/test-ledger
+program/**/*.rs.bk
+**/*.so
+
+# Keys (never commit)
+**/id.json
+**/*-keypair.json

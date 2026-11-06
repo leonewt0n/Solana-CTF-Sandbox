@@ -1,0 +1,22 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+ctf_sandbox = "4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa"
+
+[programs.localnet]
+ctf_sandbox = "4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

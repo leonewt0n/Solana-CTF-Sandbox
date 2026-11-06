@@ -1,0 +1,35 @@
+{
+  "address": "4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa",
+  "metadata": {
+    "name": "ctf_sandbox",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "trigger_mission",
+      "docs": [
+        "Deliberate teaching leak: emits the CTF flag into program logs",
+        "so beginners can find it on a block explorer."
+      ],
+      "discriminator": [
+        142,
+        145,
+        175,
+        30,
+        211,
+        253,
+        181,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ]
+}

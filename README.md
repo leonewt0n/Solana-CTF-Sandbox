@@ -5,10 +5,10 @@ Built for the "Best Beginner Hack" Track
 ## Try it
 
 - **Live demo:** _(coming soon — deploy URL goes here)_
-- **Program ID (Devnet):** _(fill in after `anchor deploy`)_
-- **Explorer:** [Solana Explorer (Devnet)](https://explorer.solana.com/?cluster=devnet)
+- **Program ID (Devnet):** `4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa`
+- **Explorer:** [Program on Solana Explorer (Devnet)](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet)
 
-Judges can use the live demo without building or deploying the Anchor program locally.
+Fund your Solana CLI wallet with Devnet SOL at the [Solana Faucet](https://faucet.solana.com/), then from `program/` run `anchor deploy --provider.cluster devnet`. Judges can use the live demo without building locally once the frontend is deployed.
 
 ## Overview
 

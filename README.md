@@ -18,7 +18,7 @@ We deployed a simple, deliberately "misconfigured" smart contract to the Solana 
 
 ## Features
 
-- **Wallet Integration:** Seamlessly connect Phantom, Backpack, or Solflare wallets.
+- **Wallet Integration:** Connect Phantom, MetaMask (Solana), Backpack, or Solflare wallets.
 - **Interactive Missions:** Trigger devnet transactions directly from the UI.
 - **Guided Tutorials:** Step-by-step hints on how to open a transaction signature in a block explorer and read the program logs.
 - **Flag Verification:** A submission box to verify the hidden string (flag) found in the on-chain logs.
@@ -26,7 +26,7 @@ We deployed a simple, deliberately "misconfigured" smart contract to the Solana 
 ## Tech Stack
 
 - **Frontend:** React.js, TailwindCSS
-- **Blockchain Integration:** `@solana/web3.js`, `@solana/wallet-adapter`
+- **Blockchain Integration:** `@solana/web3.js`, `@solana/wallet-adapter`, `@metamask/connect-solana`
 - **Smart Contract (Program):** Rust, Anchor Framework
 - **Network:** Solana Devnet
 

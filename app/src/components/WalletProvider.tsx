@@ -1,4 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
+import { createSolanaClient } from '@metamask/connect-solana'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import {
   ConnectionProvider,
   WalletProvider as SolanaWalletProvider,
@@ -19,6 +20,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     ],
     [],
   )
+
+  useEffect(() => {
+    // Registers MetaMask with the Wallet Standard so it shows in the connect modal.
+    void createSolanaClient({
+      dapp: {
+        name: 'On-Chain CTF Sandbox',
+        url: window.location.origin,
+      },
+      api: {
+        supportedNetworks: {
+          devnet: DEVNET_RPC,
+        },
+      },
+      analytics: { enabled: false },
+    })
+  }, [])
 
   return (
     <ConnectionProvider endpoint={endpoint}>

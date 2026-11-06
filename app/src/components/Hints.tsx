@@ -1,14 +1,18 @@
 const STEPS = [
   {
+    title: 'Mission 1 — Create Phantom',
+    body: 'Install Phantom, create a new wallet, and save your recovery phrase offline.',
+  },
+  {
     title: 'Switch wallet to Devnet',
-    body: 'In Phantom / Solflare / Backpack, set the network to Devnet (not Mainnet).',
+    body: 'In Phantom, set the network to Devnet (not Mainnet).',
   },
   {
     title: 'Get free Devnet SOL',
     body: 'Use the Solana faucet if your balance is empty — you need a tiny amount to pay fees.',
   },
   {
-    title: 'Trigger the mission',
+    title: 'Mission 4 — Trigger the instruction',
     body: 'Connect your wallet and click Trigger Mission Instruction. Approve the transaction.',
   },
   {
@@ -16,12 +20,8 @@ const STEPS = [
     body: 'Use the deep-link after the tx succeeds. Keep cluster=devnet in the URL.',
   },
   {
-    title: 'Read Program Logs',
-    body: 'Scroll to Program Instruction Logs and look for a string that looks like CTF{...}.',
-  },
-  {
-    title: 'Submit the flag',
-    body: 'Paste the full flag (including CTF{ and }) into the form below to verify.',
+    title: 'Read Program Logs & submit',
+    body: 'Find CTF{...} in Program Instruction Logs, then paste it into the flag form.',
   },
 ]
 

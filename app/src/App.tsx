@@ -1,5 +1,6 @@
 import { FlagForm } from './components/FlagForm'
 import { Hints } from './components/Hints'
+import { Mission1Phantom } from './components/Mission1Phantom'
 import { MissionPanel } from './components/MissionPanel'
 import { WalletBar } from './components/WalletBar'
 import { WalletProvider } from './components/WalletProvider'
@@ -11,6 +12,7 @@ export default function App() {
         <WalletBar />
         <main className="mx-auto grid max-w-5xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-2">
           <div className="space-y-5">
+            <Mission1Phantom />
             <MissionPanel />
             <FlagForm />
           </div>

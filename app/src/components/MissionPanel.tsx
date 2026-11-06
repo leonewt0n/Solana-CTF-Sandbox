@@ -26,7 +26,9 @@ export function MissionPanel() {
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-slate-900">Mission 1</h2>
+      <h2 className="text-base font-semibold text-slate-900">
+        Mission 4 — Find the flag in explorer logs
+      </h2>
       <p className="mt-2 text-sm text-slate-600">
         Call a deliberately chatty Solana program. The flag is written into the
         transaction&apos;s program logs — not hidden in this webpage.

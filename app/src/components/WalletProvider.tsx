@@ -25,7 +25,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Registers MetaMask with the Wallet Standard so it shows in the connect modal.
     void createSolanaClient({
       dapp: {
-        name: 'On-Chain CTF Sandbox',
+        name: 'Fairydev',
         url: window.location.origin,
       },
       api: {

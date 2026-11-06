@@ -17,3 +17,8 @@ program/**/*.rs.bk
 # Keys (never commit)
 **/id.json
 **/*-keypair.json
+
+# Local agent / hackathon notes (not part of the product)
+.agents/
+skills-lock.json
+.hackathon/

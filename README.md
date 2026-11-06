@@ -88,8 +88,8 @@ Open http://localhost:3000 to view the app in your browser.
 
 Team is **>50% first-time hackers / first Solana builders** (eligible for Best Beginner Hack).
 
-- [Your Name] - Frontend & Web3 Integration
-- [Teammate Name] - Anchor Program Development
-- [Teammate Name] - UI/UX & Documentation
+- [Diana] - Frontend & Web3 Integration
+- [Leo] - Anchor Program Development
+- [Anshul] - UI/UX & Documentation
 
 This project was built as our very first Solana hackathon submission!

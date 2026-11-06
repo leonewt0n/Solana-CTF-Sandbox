@@ -1,0 +1,65 @@
+:root {
+  --pink-400: #f58aa8;
+  --pink-300: #f9a8be;
+  --pink-100: #fde4ec;
+  --lilac-300: #cdb4f6;
+  --gold-400: #e8b84a;
+  --ink-900: #3a2a3f;
+  --ink-700: #5c4a62;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-solid: #fffafc;
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-pill: 999px;
+  --shadow-soft: 0 10px 30px rgba(232, 120, 160, 0.35);
+  --shadow-btn: 0 8px 18px rgba(232, 120, 160, 0.4);
+
+  --font-display: 'Fredoka', system-ui, sans-serif;
+  --font-body: 'Nunito', system-ui, sans-serif;
+}
+
+@keyframes fairy-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes bubble-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes sparkle-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

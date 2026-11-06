@@ -1,13 +1,14 @@
 @import "@solana/wallet-adapter-react-ui/styles.css";
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 :root {
   color-scheme: light;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--ink-900);
+  background: var(--pink-300);
 }
 
 body {
@@ -21,4 +22,122 @@ body {
 
 button:not(:disabled) {
   cursor: pointer;
+}
+
+.stage-bg {
+  position: fixed;
+  inset: 0;
+  background-color: var(--pink-300);
+  background-image: url('/bg/pattern-pink.jpg');
+  background-size: 720px auto;
+  background-repeat: repeat;
+  z-index: 0;
+}
+
+.stage-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(253, 228, 236, 0.55);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.fairy-float {
+  animation: fairy-float 3s ease-in-out infinite;
+}
+
+.speech-bubble {
+  animation: bubble-pop 280ms ease-out;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.85rem 1.5rem;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    opacity 160ms ease;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--pink-300), var(--pink-400));
+  color: #fff;
+  border: none;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  background: var(--surface-solid);
+  color: var(--ink-900);
+  border: 2px solid var(--lilac-300);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+}
+
+.btn-next {
+  background: var(--ink-900);
+  color: #fff;
+  border: none;
+  min-width: 7.5rem;
+}
+
+.btn-next:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: #2a1c2f;
+}
+
+.btn-next:disabled {
+  background: #c4b8c8;
+  cursor: not-allowed;
+}
+
+/* Wallet adapter button — blend with Fairydev */
+.wallet-adapter-button {
+  font-family: var(--font-display) !important;
+  border-radius: var(--radius-pill) !important;
+  background: var(--ink-900) !important;
+  height: auto !important;
+  line-height: 1.2 !important;
+  padding: 0.7rem 1.1rem !important;
+}
+
+.wallet-adapter-button:hover {
+  background: #2a1c2f !important;
+}
+
+@media (max-width: 1023px) {
+  .action-zone {
+    position: relative;
+  }
+
+  .btn-next {
+    position: sticky;
+    bottom: 1rem;
+    z-index: 30;
+    box-shadow: var(--shadow-soft);
+  }
 }

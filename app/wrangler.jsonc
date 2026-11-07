@@ -18,5 +18,8 @@
       "migrations_dir": "migrations",
     },
   ],
+  "secrets": { "required": ["EMAIL_CODE_SECRET"] },
+  "vars": { "EMAIL_MODE": "disabled", "EMAIL_FROM": "" },
+  "send_email": [{ "name": "EMAIL" }],
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

@@ -21,9 +21,12 @@ const record = (progress: Progress | null, revision = 1, wallet = owner) => ({
 });
 const response = (data: unknown, status = 200) =>
   Response.json(data, { status });
-function useHarness(initial = emptyProgress()) {
+function useHarness(
+  initial = emptyProgress(),
+  learner: { id: string; email: string; wallets: string[] } | null = null,
+) {
   const [progress, setProgress] = useState(initial);
-  const sync = useProgressSync(owner, progress, setProgress);
+  const sync = useProgressSync(owner, progress, setProgress, learner);
   return { ...sync, progress, setProgress };
 }
 beforeEach(() => {
@@ -35,6 +38,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("cloud progress synchronization", () => {
+  it("restores introductory progress for an email account without a wallet", async () => {
+    const learner = {
+      id: "learner-a",
+      email: "learner@example.test",
+      wallets: [],
+    };
+    vi.mocked(fetch).mockResolvedValueOnce(
+      response({ ...record(next, 3, "anon"), scope: "learner" }),
+    );
+    const { result } = renderHook(() => {
+      const [progress, setProgress] = useState(emptyProgress());
+      return {
+        ...useProgressSync("anon", progress, setProgress, learner),
+        progress,
+      };
+    });
+    await waitFor(() => expect(result.current.progress).toEqual(next));
+    expect(result.current.status).toBe("ready");
+    expect(vi.mocked(fetch).mock.calls[0][1]?.headers).toMatchObject({
+      "X-Learner-ID": learner.id,
+    });
+  });
+  it("seeds a new linked wallet from shared introductory progress instead of starting over", async () => {
+    const learner = {
+      id: "learner-a",
+      email: "learner@example.test",
+      wallets: [owner],
+    };
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(response({ ...record(next, 0), scope: "wallet" }))
+      .mockResolvedValueOnce(response({ ...record(next, 1), scope: "wallet" }));
+    const { result } = renderHook(() => useHarness(emptyProgress(), learner));
+    await waitFor(() => expect(result.current.progress).toEqual(next));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2), {
+      timeout: 2000,
+    });
+    expect(
+      JSON.parse(vi.mocked(fetch).mock.calls[1][1]!.body as string).progress,
+    ).toEqual(next);
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+  });
+
   it("signs a domain-bound login message only after an explicit action", async () => {
     const message = `Login\nWallet: ${owner}\nURI: ${window.location.origin}\nNonce: example`;
     mocks.wallet.signMessage.mockResolvedValueOnce(new Uint8Array(64));
@@ -67,22 +112,31 @@ describe("cloud progress synchronization", () => {
     expect(result.current.status).toBe("local");
     expect(fetch).toHaveBeenCalledTimes(2);
   });
-  it("requires an explicit choice before replacing different browser progress", async () => {
+  it("automatically restores cloud progress on a fresh browser", async () => {
     vi.mocked(fetch).mockResolvedValue(response(record(next, 4)));
     const { result } = renderHook(() => useHarness());
-    await waitFor(() => expect(result.current.status).toBe("conflict"));
-    expect(result.current.progress).toEqual(emptyProgress());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
     expect(fetch).toHaveBeenCalledTimes(1);
-    act(() => result.current.resolve(true));
     expect(result.current.progress).toEqual(next);
     await new Promise((resolve) => setTimeout(resolve, 800));
     expect(fetch).toHaveBeenCalledTimes(1);
   });
   it("uploads this device's chosen progress using the cloud revision", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(response(record(next, 4)))
-      .mockResolvedValueOnce(response(record(emptyProgress(), 5)));
-    const { result } = renderHook(() => useHarness());
+      .mockResolvedValueOnce(
+        response(
+          record(
+            {
+              stepIndex: 2,
+              completed: STEPS.slice(0, 2).map((step) => step.id),
+              signature: null,
+            },
+            4,
+          ),
+        ),
+      )
+      .mockResolvedValueOnce(response(record(next, 5)));
+    const { result } = renderHook(() => useHarness(next));
     await waitFor(() => expect(result.current.status).toBe("conflict"));
     act(() => result.current.resolve(false));
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2), {
@@ -93,7 +147,7 @@ describe("cloud progress synchronization", () => {
       wallet: owner,
       version: 3,
       revision: 4,
-      progress: emptyProgress(),
+      progress: next,
     });
     await waitFor(() => expect(result.current.status).toBe("ready"));
   });

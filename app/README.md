@@ -81,6 +81,7 @@ Verification:
 ```bash
 npm test
 npm run test:cloud
+npm run test:accounts
 npm run lint
 npm run worker:check
 npm run build
@@ -112,6 +113,37 @@ For a different account, first create `solana-learn-progress` with `npx wrangler
 - D1 stores public wallet addresses, course version, lesson IDs, current step, transaction signatures, revision numbers, and update timestamps. It does not store private keys, recovery phrases, or login signatures. Expired authentication records and hashed IP rate windows are cleaned up on subsequent challenge requests.
 - Cloud sync authenticates ownership and validates the progress shape. It does not independently prove that a learner completed lessons or earned a certification.
 
-Frontend `VITE_` variables remain public build-time values. Never put a private RPC credential in them. No application session secret is required because opaque sessions are held in D1.
+Frontend `VITE_` variables remain public build-time values. Never put a private RPC credential in them. Wallet sessions use opaque tokens held in D1. Email-code authentication additionally requires the server-only `EMAIL_CODE_SECRET` to authenticate stored code hashes.
 
 Actual wallet-extension signing and mobile wallet behavior still require manual checks. Automated signatures verify the authentication protocol without controlling a real user wallet.
+
+## Learner accounts and moving between browsers
+
+The **Save or move progress** panel works before connecting a wallet. **Create browser-transfer code** stores a single-use introductory-progress snapshot in D1. Open the same site in Solflare, Phantom, or another browser and use **Resume with transfer code**. Transfer codes expire in ten minutes and cannot authenticate an account. Only pre-connection lessons travel: wallet addresses, transaction receipts, and wallet-dependent completions are excluded. Importing a code never replaces more advanced local progress or an existing wallet receipt.
+
+The learner-account schema is additive (`migrations/0002_learner_accounts.sql`). Existing wallet records, revisions, and sessions remain in place. Once email delivery is enabled, **Save with email** sends an eight-digit, ten-minute sign-in code. A learner can sign in before connecting any wallet. Introductory progress is stored against the learner account; wallet-specific records remain keyed by wallet address. Linking a wallet requires a domain-bound wallet signature naming the learner email. A wallet already linked to another learner cannot be silently reassigned. Signing into the same learner account in another browser restores introductory progress; selecting a linked wallet can restore its existing practice record without another login signature. Blockchain transactions still require the actual wallet's authorization.
+
+The progress API requires an `X-Learner-ID` matching the authenticated learner when using an email session. This prevents another tab changing accounts from redirecting pending saves. Wallet-only clients remain supported. Fresh browsers restore a saved record automatically; browsers with different meaningful local progress still require an explicit conflict choice. Email login rotates the learner session and revokes the browser’s previous wallet-login session; it does not automatically claim that wallet. Link it with a fresh signature. Account logout revokes both the current learner session and current legacy wallet session. Other browsers keep their own sessions.
+
+### Current delivery status
+
+Public email sign-in defaults to **disabled**. The configured Cloudflare account returned `Unauthorized [code: 2036]` when inspecting Email Sending, and no verified sender was supplied. The public UI reports that email sign-in is unavailable and offers transfer codes. No upgrade, billing change, DNS change, or real test email is performed automatically.
+
+To enable native Cloudflare email delivery:
+
+1. Enable Email Sending for a verified sender domain in the intended account. Cloudflare's current arbitrary-recipient sending product requires Workers Paid; existing verified-recipient Email Routing is not sufficient for public signups. See [Email Service documentation](https://developers.cloudflare.com/email-service/).
+2. Set `EMAIL_FROM` to a verified sender address and `EMAIL_MODE` to `cloudflare` in `wrangler.jsonc`.
+3. Set a new random secret with `npx wrangler secret put EMAIL_CODE_SECRET`. Use at least 32 unpredictable characters; never use a fixture or commit the secret. The config declares this secret for generated types. Deploy after the domain and secret are ready.
+4. Verify receipt of a real code, expiry, invalid-code handling, account restoration, and wallet linking before announcing email login as available.
+
+Codes are stored as HMAC-SHA-256 digests bound to their challenge ID and email. Raw codes are never logged or stored in D1. Each challenge allows five attempts and is consumed once. Sending is rate-limited per IP and normalized email; verification and transfer routes also have rate limits. Session tokens are random and stored only as hashes. Learner email addresses are stored in D1 to support login and are returned only to the authenticated learner.
+
+### Local email-code development
+
+Create an ignored `.dev.vars` in `app/` from `.dev.vars.example`, set `EMAIL_MODE=local`, and set a random `EMAIL_CODE_SECRET` of at least 32 characters. Then build, apply local migrations, and start `npm run worker:dev`.
+
+Local mode returns a `localCode` to the localhost-only development form and sends no email. The form labels it **Local development only**. This path requires an HTTP loopback URL; even accidentally configuring `EMAIL_MODE=local` on a public HTTPS deployment does not expose codes or permit email authentication. Never configure a production sender to use local mode.
+
+`npm run test:accounts` uses port 8801 and disposable local D1 data. It tests anonymous transfer across browsers, receipt isolation, expiry and replay checks, email-only sessions, linked-wallet restoration, legacy-record preservation, cross-account isolation, logout, and email-code attempt limits. It never sends a real email or changes hosted data. The frontend tests also verify that local test codes cannot be exposed on a public HTTPS URL.
+
+Shared introductory progress is advanced when a linked wallet has completed more introductory lessons. Restarting one wallet's course does not erase another wallet's record or the learner's shared introductory record. To repeat the entire introductory course, sign out and restart the browser record, or add an explicit account-wide reset workflow rather than treating a wallet reset as deletion of every linked record.

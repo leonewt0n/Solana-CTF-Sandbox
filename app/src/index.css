@@ -2849,3 +2849,72 @@ h1 {
   font-size: 15px;
   color: var(--muted);
 }
+
+.learner-access {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.learner-access-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+}
+.learner-access-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 24px;
+  padding: 20px 0;
+}
+.learner-access-options h2 {
+  font-size: 20px;
+}
+.learner-access-options p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.learner-access-options form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  align-items: flex-start;
+}
+.learner-access-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+  font-size: 15px;
+}
+.learner-access-options input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface, #202024);
+  color: inherit;
+  font: inherit;
+}
+.transfer-output {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.transfer-output output {
+  font-family: monospace;
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  user-select: all;
+}
+.local-code {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}

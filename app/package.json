@@ -10,12 +10,13 @@
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
     "worker:dev": "wrangler dev",
-    "worker:types": "wrangler types --include-runtime=false",
+    "worker:types": "wrangler types --include-runtime=false --strict-vars=false",
     "worker:check": "tsc -p tsconfig.worker.json",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy": "npm run build && wrangler deploy",
-    "test:cloud": "node tests/cloud-api.integration.mjs"
+    "test:cloud": "node tests/cloud-api.integration.mjs",
+    "test:accounts": "node tests/learner-api.integration.mjs"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.1",

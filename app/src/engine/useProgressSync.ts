@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import bs58 from "bs58";
-import { normalizeProgress, type Progress } from "./progress";
+import type { LearnerAccount } from "../context/LearnerAccount";
+import {
+  normalizeProgress,
+  introductoryProgress,
+  mergeIntroductoryProgress,
+  type Progress,
+} from "./progress";
 
 type Saved = {
   wallet: string;
   version: number;
   progress: Progress | null;
   revision: number;
+  scope?: "learner" | "wallet";
 };
 type SyncStatus =
   "local" | "loading" | "ready" | "saving" | "conflict" | "error";
@@ -20,12 +27,20 @@ class SyncError extends Error {
     this.saved = saved;
   }
 }
-async function api(path: string, method = "GET", data?: unknown) {
+async function api(
+  path: string,
+  method = "GET",
+  data?: unknown,
+  learnerId?: string,
+) {
   const response = await fetch(`/api/${path}`, {
     method,
     credentials: "same-origin",
     cache: "no-store",
-    headers: data === undefined ? {} : { "Content-Type": "application/json" },
+    headers: {
+      ...(data === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(learnerId ? { "X-Learner-ID": learnerId } : {}),
+    },
     body: data === undefined ? undefined : JSON.stringify(data),
     signal: AbortSignal.timeout(10000),
   });
@@ -56,6 +71,8 @@ export function useProgressSync(
   owner: string,
   progress: Progress,
   restore: (progress: Progress) => void,
+  learner: LearnerAccount | null = null,
+  onLinked?: () => Promise<void>,
 ) {
   const wallet = useWallet();
   const [status, setStatus] = useState<SyncStatus>("local");
@@ -67,6 +84,7 @@ export function useProgressSync(
   const latest = useRef(progress);
   const restoreRef = useRef(restore);
   const revision = useRef(0);
+  const scope = useRef<"learner" | "wallet">("wallet");
   const savedText = useRef<string | null>(null);
   const ready = useRef(false);
   const running = useRef(false);
@@ -78,13 +96,46 @@ export function useProgressSync(
   const accept = useCallback(
     (data: Saved) => {
       const saved = validateSaved(data, owner);
+      scope.current = saved.scope ?? "wallet";
       revision.current = saved.revision;
+      if (saved.scope === "wallet" && saved.revision === 0 && saved.progress) {
+        // A newly linked wallet has no wallet record yet. Carry the learner's introductory progress into it.
+        const merged = mergeIntroductoryProgress(
+          latest.current,
+          saved.progress,
+        );
+        if (merged !== latest.current) restoreRef.current(merged);
+        savedText.current = null;
+        ready.current = true;
+        setConflict(null);
+        setStatus("ready");
+        setMessage("Your introductory learning is restored for this wallet.");
+        setTick((n) => n + 1);
+        return;
+      }
       savedText.current =
         saved.progress === null ? null : JSON.stringify(saved.progress);
       if (
         saved.progress &&
-        savedText.current !== JSON.stringify(latest.current)
+        savedText.current !==
+          JSON.stringify(
+            scope.current === "learner"
+              ? introductoryProgress(latest.current)
+              : latest.current,
+          )
       ) {
+        if (
+          latest.current.completed.length === 0 &&
+          !latest.current.signature
+        ) {
+          restoreRef.current(saved.progress);
+          ready.current = true;
+          setConflict(null);
+          setStatus("ready");
+          setMessage("Your saved learning is restored.");
+          setTick((n) => n + 1);
+          return;
+        }
         ready.current = false;
         setConflict(saved);
         setStatus("conflict");
@@ -95,16 +146,27 @@ export function useProgressSync(
         ready.current = true;
         setConflict(null);
         setStatus("ready");
-        setMessage("Cloud saves enabled for this wallet.");
+        setMessage(
+          saved.scope === "learner" && owner !== "anon"
+            ? "Introductory progress saves with your learner account. Link this wallet to save wallet practice."
+            : learner
+              ? "Cloud saves enabled for your learner account."
+              : "Cloud saves enabled for this wallet.",
+        );
         setTick((n) => n + 1);
       }
     },
-    [owner],
+    [owner, learner],
   );
   const load = useCallback(
     async (token: number, quiet = false) => {
       try {
-        const data = await api(`progress?wallet=${encodeURIComponent(owner)}`);
+        const data = await api(
+          `progress?wallet=${encodeURIComponent(owner)}`,
+          "GET",
+          undefined,
+          learner?.id,
+        );
         if (token === generation.current) accept(data);
       } catch (error) {
         if (token !== generation.current) return;
@@ -120,11 +182,11 @@ export function useProgressSync(
         }
       }
     },
-    [accept, owner],
+    [accept, owner, learner?.id],
   );
   useEffect(() => {
     const token = ++generation.current;
-    if (owner !== "anon") void load(token, true);
+    if (owner !== "anon" || learner) void load(token, true);
     return () => {
       // This counter intentionally invalidates requests from the unmounted account session.
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,35 +194,52 @@ export function useProgressSync(
       ready.current = false;
     };
     // The course session remounts on every wallet change.
-  }, [owner, load]);
+  }, [owner, load, learner]);
   useEffect(() => {
     if (
       !ready.current ||
       running.current ||
-      owner === "anon" ||
-      savedText.current === JSON.stringify(progress)
+      (owner === "anon" && !learner) ||
+      savedText.current ===
+        JSON.stringify(
+          scope.current === "learner"
+            ? introductoryProgress(progress)
+            : progress,
+        )
     )
       return;
     const token = generation.current;
     const timer = setTimeout(() => {
       if (!ready.current || token !== generation.current) return;
-      const outgoing = latest.current;
+      const outgoing =
+        scope.current === "learner"
+          ? introductoryProgress(latest.current)
+          : latest.current;
       running.current = true;
       setStatus("saving");
       setMessage("Saving progress…");
-      void api("progress", "PUT", {
-        wallet: owner,
-        version: 3,
-        revision: revision.current,
-        progress: outgoing,
-      })
+      void api(
+        "progress",
+        "PUT",
+        {
+          wallet: owner,
+          version: 3,
+          revision: revision.current,
+          progress: outgoing,
+        },
+        learner?.id,
+      )
         .then((data) => {
           if (token !== generation.current) return;
           const saved = validateSaved(data, owner);
           revision.current = saved.revision;
           savedText.current = JSON.stringify(saved.progress);
           setStatus("ready");
-          setMessage("Progress saved to your account.");
+          setMessage(
+            saved.scope === "learner" && owner !== "anon"
+              ? "Introductory progress saved. Link this wallet to save wallet practice."
+              : "Progress saved to your account.",
+          );
         })
         .catch((error) => {
           if (token !== generation.current) return;
@@ -197,7 +276,7 @@ export function useProgressSync(
         });
     }, 700);
     return () => clearTimeout(timer);
-  }, [progress, owner, tick, accept]);
+  }, [progress, owner, tick, accept, learner]);
   async function signIn() {
     if (running.current || owner === "anon") return;
     if (!wallet.signMessage) {
@@ -214,7 +293,10 @@ export function useProgressSync(
       "Approve the login message in your wallet. No transaction or SOL fee.",
     );
     try {
-      const challenge = await api("auth/challenge", "POST", { wallet: owner });
+      const challenge = await api("auth/challenge", "POST", {
+        wallet: owner,
+        ...(learner ? { linkLearner: true, learnerId: learner.id } : {}),
+      });
       if (token !== generation.current) return;
       if (
         typeof challenge.message !== "string" ||
@@ -227,7 +309,10 @@ export function useProgressSync(
       );
       if (token !== generation.current) return;
       await api("auth/verify", "POST", { signature: bs58.encode(signature) });
-      if (token === generation.current) await load(token);
+      if (token === generation.current) {
+        await load(token);
+        await onLinked?.();
+      }
     } catch (error) {
       if (token !== generation.current) return;
       setStatus("local");

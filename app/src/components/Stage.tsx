@@ -11,15 +11,28 @@ import { LearningVisual } from "./LearningVisual";
 import { Celebration } from "./Celebration";
 import { Glossary } from "./Glossary";
 import { Icon } from "./Icon";
+import { LearnerAccess } from "./LearnerAccess";
+import {
+  LearnerAccountProvider,
+  useLearnerAccount,
+} from "../context/LearnerAccount";
 import { useProgressSync } from "../engine/useProgressSync";
 
 type View = "overview" | "lesson" | "progress";
 export function Stage() {
+  return (
+    <LearnerAccountProvider>
+      <StageContent />
+    </LearnerAccountProvider>
+  );
+}
+function StageContent() {
+  const account = useLearnerAccount();
   const { publicKey } = useWallet();
   const [view, setView] = useState<View>("overview");
   return (
     <CourseSession
-      key={publicKey?.toBase58() ?? "anon"}
+      key={`${publicKey?.toBase58() ?? "anon"}:${account.learner?.id ?? "guest"}`}
       owner={publicKey?.toBase58() ?? "anon"}
       view={view}
       setView={setView}
@@ -36,7 +49,14 @@ function CourseSession({
   setView: (view: View) => void;
 }) {
   const engine = useMissionEngine(owner);
-  const sync = useProgressSync(owner, engine.progress, engine.restoreProgress);
+  const account = useLearnerAccount();
+  const sync = useProgressSync(
+    owner,
+    engine.progress,
+    engine.restoreProgress,
+    account.learner,
+    account.refresh,
+  );
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -122,9 +142,17 @@ function CourseSession({
           <WalletMultiButton />
         </div>
       </header>
+      <LearnerAccess
+        progress={engine.progress}
+        busy={engine.status === "checking"}
+        restore={(progress) => {
+          engine.restoreProgress(progress);
+          setView("lesson");
+        }}
+      />
       <section className="cloud-progress" aria-label="Progress storage">
         <p role="status">{sync.message}</p>
-        {owner !== "anon" && (
+        {(owner !== "anon" || account.learner) && (
           <div className="cloud-progress-actions">
             {sync.status === "conflict" ? (
               <>
@@ -141,6 +169,21 @@ function CourseSession({
                   Use this device’s progress
                 </button>
               </>
+            ) : account.learner ? (
+              owner !== "anon" && !account.learner.wallets.includes(owner) ? (
+                <button
+                  disabled={
+                    sync.status === "loading" ||
+                    sync.status === "saving" ||
+                    engine.status === "checking"
+                  }
+                  onClick={() => void sync.signIn()}
+                >
+                  Link this wallet to my learner account
+                </button>
+              ) : sync.status === "error" ? (
+                <button onClick={sync.retry}>Retry cloud sync</button>
+              ) : null
             ) : sync.status === "ready" || sync.status === "saving" ? (
               <button
                 disabled={sync.status === "saving"}

@@ -1,0 +1,3 @@
+# Local development only. Generate a secret before using email-code tests manually.
+EMAIL_MODE=local
+EMAIL_CODE_SECRET=

@@ -80,3 +80,20 @@ export function completeStep(progress: Progress, id: string): Progress {
     ? { ...progress, completed: [...progress.completed, id] }
     : progress;
 }
+
+/** Only introductory learning travels without proving wallet ownership. */
+export function introductoryProgress(progress: Progress): Progress {
+  const completed = progress.completed.slice(0, connectIndex);
+  return {
+    stepIndex: Math.min(progress.stepIndex, completed.length, connectIndex),
+    completed,
+    signature: null,
+  };
+}
+export function mergeIntroductoryProgress(
+  local: Progress,
+  incoming: Progress,
+): Progress {
+  const portable = introductoryProgress(incoming);
+  return local.completed.length >= portable.completed.length ? local : portable;
+}

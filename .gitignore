@@ -25,3 +25,6 @@ skills-lock.json
 
 # Internal planning docs (keep local)
 Frontend.md
+
+# Cloudflare local runtime state
+.wrangler/

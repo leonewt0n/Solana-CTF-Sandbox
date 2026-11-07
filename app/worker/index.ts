@@ -1,124 +1,29 @@
 import bs58 from "bs58";
-import { normalizeProgress, type Progress } from "../src/engine/progress";
+import {
+  normalizeProgress,
+  introductoryProgress,
+} from "../src/engine/progress";
 
 const VERSION = 3;
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
-class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-function json(data: unknown, status = 200, headers: HeadersInit = {}) {
-  return Response.json(data, {
-    status,
-    headers: {
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      ...headers,
-    },
-  });
-}
-function cookie(request: Request, name: string) {
-  return (
-    request.headers
-      .get("Cookie")
-      ?.split(";")
-      .map((s) => s.trim())
-      .find((s) => s.startsWith(name + "="))
-      ?.slice(name.length + 1) ?? ""
-  );
-}
-function setCookie(
-  request: Request,
-  name: string,
-  value: string,
-  seconds: number,
-) {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  return `${name}=${value}; Path=/api; HttpOnly; SameSite=Strict; Max-Age=${seconds}${secure}`;
-}
-async function hash(value: string) {
-  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(value));
-  return Array.from(new Uint8Array(digest), (n) =>
-    n.toString(16).padStart(2, "0"),
-  ).join("");
-}
-function randomToken() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)), (n) =>
-    n.toString(16).padStart(2, "0"),
-  ).join("");
-}
-async function body(request: Request): Promise<Record<string, unknown>> {
-  if (!request.headers.get("Content-Type")?.startsWith("application/json"))
-    throw new ApiError(415, "JSON required");
-  const reader = request.body?.getReader();
-  if (!reader) throw new ApiError(400, "Missing body");
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > 16384) {
-      await reader.cancel();
-      throw new ApiError(413, "Request too large");
-    }
-    parts.push(value);
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    bytes.set(part, offset);
-    offset += part.length;
-  }
-  try {
-    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes));
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-      throw new Error();
-    return parsed as Record<string, unknown>;
-  } catch {
-    throw new ApiError(400, "Invalid JSON");
-  }
-}
-function walletKey(wallet: unknown) {
-  try {
-    if (typeof wallet !== "string" || wallet.length > 44) throw new Error();
-    const key = bs58.decode(wallet);
-    if (key.length !== 32) throw new Error();
-    return key;
-  } catch {
-    throw new ApiError(400, "Invalid wallet address");
-  }
-}
-async function session(request: Request, env: Env) {
-  const token = cookie(request, "sl_session");
-  if (!/^[a-f0-9]{64}$/.test(token))
-    throw new ApiError(401, "Sign in to sync progress");
-  const result = await env.DB.prepare(
-    "SELECT wallet FROM auth_sessions WHERE token_hash = ? AND expires_at > ?",
-  )
-    .bind(await hash(token), Date.now())
-    .first<{ wallet: string }>();
-  if (!result) throw new ApiError(401, "Session expired. Sign in again");
-  return result.wallet;
-}
-async function saved(env: Env, wallet: string) {
-  const row = await env.DB.prepare(
-    "SELECT progress, revision FROM course_progress WHERE wallet = ? AND course_version = ?",
-  )
-    .bind(wallet, VERSION)
-    .first<{ progress: string; revision: number }>();
-  return {
-    wallet,
-    version: VERSION,
-    progress: row ? (JSON.parse(row.progress) as Progress) : null,
-    revision: row?.revision ?? 0,
-  };
-}
+import {
+  ApiError,
+  json,
+  cookie,
+  setCookie,
+  hash,
+  randomToken,
+  body,
+  walletKey,
+} from "./shared";
+import {
+  handleAccount,
+  learnerSession,
+  progressIdentity,
+  savedProgress,
+  syncIntroduction,
+} from "./accounts";
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -134,6 +39,8 @@ export default {
       if (!env.DB)
         throw new ApiError(503, "Progress storage is not configured");
       const now = Date.now();
+      const accountResponse = await handleAccount(request, env);
+      if (accountResponse) return accountResponse;
       if (url.pathname === "/api/auth/challenge" && request.method === "POST") {
         const data = await body(request);
         walletKey(data.wallet);
@@ -152,8 +59,17 @@ export default {
             429,
             { "Retry-After": "300" },
           );
+        const linking =
+          data.linkLearner === true
+            ? await learnerSession(request, env, true)
+            : null;
+        if (linking && data.learnerId !== linking.id)
+          throw new ApiError(
+            403,
+            "The learner account changed. Reload before linking",
+          );
         const id = randomToken();
-        const message = `${url.host} requests a Solana Learn login.\n\nWallet: ${data.wallet}\nURI: ${url.origin}\nNonce: ${id}\nIssued at: ${new Date(now).toISOString()}\nExpires at: ${new Date(now + 300000).toISOString()}\n\nSign in to save course progress. No transaction, SOL fee, or asset access.`;
+        const message = `${url.host} requests a Solana Learn ${linking ? `wallet link to your learner account (${linking.email})` : "login"}.\n\nWallet: ${data.wallet}\nURI: ${url.origin}\nNonce: ${id}\nIssued at: ${new Date(now).toISOString()}\nExpires at: ${new Date(now + 300000).toISOString()}\n\nSign in to save course progress. No transaction, SOL fee, or asset access.`;
         await env.DB.batch([
           env.DB.prepare(
             "DELETE FROM auth_challenges WHERE expires_at <= ?",
@@ -165,8 +81,8 @@ export default {
             now,
           ),
           env.DB.prepare(
-            "INSERT INTO auth_challenges (id, wallet, message, expires_at) VALUES (?, ?, ?, ?)",
-          ).bind(id, data.wallet, message, now + 300000),
+            "INSERT INTO auth_challenges (id, wallet, message, expires_at, learner_id) VALUES (?, ?, ?, ?, ?)",
+          ).bind(id, data.wallet, message, now + 300000, linking?.id ?? null),
         ]);
         return json({ message }, 200, {
           "Set-Cookie": setCookie(request, "sl_challenge", id, 300),
@@ -179,10 +95,14 @@ export default {
           throw new ApiError(401, "Login challenge expired");
         // Consume before checking the signature: each challenge allows exactly one attempt.
         const challenge = await env.DB.prepare(
-          "DELETE FROM auth_challenges WHERE id = ? AND expires_at > ? RETURNING wallet, message",
+          "DELETE FROM auth_challenges WHERE id = ? AND expires_at > ? RETURNING wallet, message, learner_id",
         )
           .bind(id, now)
-          .first<{ wallet: string; message: string }>();
+          .first<{
+            wallet: string;
+            message: string;
+            learner_id: string | null;
+          }>();
         if (!challenge)
           throw new ApiError(401, "Login challenge expired or already used");
         let signature: Uint8Array;
@@ -208,6 +128,32 @@ export default {
           encoder.encode(challenge.message),
         );
         if (!valid) throw new ApiError(401, "Wallet signature rejected");
+        if (challenge.learner_id) {
+          const learner = await learnerSession(request, env, true);
+          if (learner?.id !== challenge.learner_id)
+            throw new ApiError(
+              403,
+              "The learner account changed. Start wallet linking again",
+            );
+          const linked = await env.DB.prepare(
+            "INSERT INTO learner_wallets (wallet, learner_id, linked_at) VALUES (?, ?, ?) ON CONFLICT(wallet) DO UPDATE SET linked_at = excluded.linked_at WHERE learner_id = excluded.learner_id RETURNING learner_id",
+          )
+            .bind(challenge.wallet, learner.id, now)
+            .first<{ learner_id: string }>();
+          if (!linked)
+            throw new ApiError(
+              409,
+              "This wallet is already linked to another learner account. Sign in to that account to use it",
+            );
+          const prior = await savedProgress(env, {
+            scope: "wallet",
+            id: challenge.wallet,
+            wallet: challenge.wallet,
+            learner,
+          });
+          if (prior.progress)
+            await syncIntroduction(env, learner.id, prior.progress);
+        }
         const token = randomToken();
         // Rotate the browser session on login.
         await env.DB.batch([
@@ -240,41 +186,50 @@ export default {
         });
       }
       if (url.pathname === "/api/progress") {
-        const wallet = await session(request, env);
-        if (
-          url.searchParams.has("wallet") &&
-          url.searchParams.get("wallet") !== wallet
-        )
-          throw new ApiError(403, "Sign in with the connected wallet");
-        if (request.method === "GET") return json(await saved(env, wallet));
-        if (request.method === "PUT") {
-          const data = await body(request);
-          if (data.wallet !== wallet)
-            throw new ApiError(403, "Sign in with the connected wallet");
-          const progress = normalizeProgress(data.progress);
+        const data = request.method === "PUT" ? await body(request) : null;
+        const identity = await progressIdentity(
+          request,
+          env,
+          data?.wallet ?? url.searchParams.get("wallet"),
+          request.headers.get("X-Learner-ID"),
+        );
+        const wallet = identity.wallet;
+        if (request.method === "GET")
+          return json(await savedProgress(env, identity));
+        if (request.method === "PUT" && data) {
+          const rawProgress = normalizeProgress(data.progress);
+          const progress =
+            rawProgress && identity.scope === "learner"
+              ? introductoryProgress(rawProgress)
+              : rawProgress;
           if (
             data.version !== VERSION ||
             !Number.isSafeInteger(data.revision) ||
             Number(data.revision) < 0 ||
             !progress ||
-            JSON.stringify(progress) !== JSON.stringify(data.progress)
+            JSON.stringify(rawProgress) !== JSON.stringify(data.progress)
           )
             throw new ApiError(400, "Invalid course progress");
           // Compare-and-swap prevents an old tab or device from silently overwriting a newer save.
+          const table =
+            identity.scope === "learner"
+              ? "learner_progress"
+              : "course_progress";
+          const key = identity.scope === "learner" ? "learner_id" : "wallet";
           const result =
             data.revision === 0
               ? await env.DB.prepare(
-                  "INSERT INTO course_progress (wallet, course_version, progress, revision, updated_at) VALUES (?, ?, ?, 1, ?) ON CONFLICT(wallet, course_version) DO NOTHING RETURNING revision",
+                  `INSERT INTO ${table} (${key}, course_version, progress, revision, updated_at) VALUES (?, ?, ?, 1, ?) ON CONFLICT(${key}, course_version) DO NOTHING RETURNING revision`,
                 )
-                  .bind(wallet, VERSION, JSON.stringify(progress), now)
+                  .bind(identity.id, VERSION, JSON.stringify(progress), now)
                   .first<{ revision: number }>()
               : await env.DB.prepare(
-                  "UPDATE course_progress SET progress = ?, revision = revision + 1, updated_at = ? WHERE wallet = ? AND course_version = ? AND revision = ? RETURNING revision",
+                  `UPDATE ${table} SET progress = ?, revision = revision + 1, updated_at = ? WHERE ${key} = ? AND course_version = ? AND revision = ? RETURNING revision`,
                 )
                   .bind(
                     JSON.stringify(progress),
                     now,
-                    wallet,
+                    identity.id,
                     VERSION,
                     data.revision,
                   )
@@ -283,12 +238,18 @@ export default {
             return json(
               {
                 error: "Progress changed on another device",
-                ...(await saved(env, wallet)),
+                ...(await savedProgress(env, identity)),
               },
               409,
             );
+          if (
+            identity.scope === "wallet" &&
+            identity.learner?.wallets.includes(wallet)
+          )
+            await syncIntroduction(env, identity.learner.id, progress);
           return json({
             wallet,
+            scope: identity.scope,
             version: VERSION,
             progress,
             revision: result.revision,

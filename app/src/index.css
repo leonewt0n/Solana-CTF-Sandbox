@@ -2805,3 +2805,38 @@ h1 {
     animation: none;
   }
 }
+
+.cloud-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border, #303034);
+  font-size: 14px;
+}
+.cloud-progress p {
+  margin: 0;
+}
+.cloud-progress-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cloud-progress button {
+  padding: 8px 12px;
+  border: 1px solid var(--border, #606068);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.cloud-progress button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.cloud-progress button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}

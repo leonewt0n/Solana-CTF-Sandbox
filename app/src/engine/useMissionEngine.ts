@@ -142,6 +142,15 @@ export function useMissionEngine(owner: string) {
     setBalanceLamports(null);
   }
   return {
+    progress,
+    restoreProgress: (restored: import("./progress").Progress) => {
+      if (busy.current) return;
+      operation.current++;
+      setProgress(restored);
+      setStatus("idle");
+      setFailReason(null);
+      setBalanceLamports(null);
+    },
     step,
     stepIndex: progress.stepIndex,
     steps: STEPS,

@@ -11,6 +11,7 @@ import { LearningVisual } from "./LearningVisual";
 import { Celebration } from "./Celebration";
 import { Glossary } from "./Glossary";
 import { Icon } from "./Icon";
+import { useProgressSync } from "../engine/useProgressSync";
 
 type View = "overview" | "lesson" | "progress";
 export function Stage() {
@@ -35,6 +36,7 @@ function CourseSession({
   setView: (view: View) => void;
 }) {
   const engine = useMissionEngine(owner);
+  const sync = useProgressSync(owner, engine.progress, engine.restoreProgress);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -120,6 +122,50 @@ function CourseSession({
           <WalletMultiButton />
         </div>
       </header>
+      <section className="cloud-progress" aria-label="Progress storage">
+        <p role="status">{sync.message}</p>
+        {owner !== "anon" && (
+          <div className="cloud-progress-actions">
+            {sync.status === "conflict" ? (
+              <>
+                <button
+                  disabled={engine.status === "checking"}
+                  onClick={() => sync.resolve(true)}
+                >
+                  Use cloud progress
+                </button>
+                <button
+                  disabled={engine.status === "checking"}
+                  onClick={() => sync.resolve(false)}
+                >
+                  Use this device’s progress
+                </button>
+              </>
+            ) : sync.status === "ready" || sync.status === "saving" ? (
+              <button
+                disabled={sync.status === "saving"}
+                onClick={() => void sync.signOut()}
+              >
+                Sign out of cloud saves
+              </button>
+            ) : (
+              <>
+                <button
+                  disabled={
+                    sync.status === "loading" || engine.status === "checking"
+                  }
+                  onClick={() => void sync.signIn()}
+                >
+                  Sign in to save progress
+                </button>
+                {sync.status === "error" && (
+                  <button onClick={sync.retry}>Retry cloud sync</button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </section>
       <div className="app-layout">
         <aside
           className={`course-sidebar ${outlineOpen ? "is-open" : ""}`}
@@ -230,8 +276,9 @@ function CourseSession({
             ) : (
               <div className="reset-confirm">
                 <p>
-                  Clear this account’s course progress? Your wallet stays
-                  unchanged.
+                  Clear this account’s course progress? If cloud saves are
+                  enabled, this also resets the cloud copy after syncing. Your
+                  wallet stays unchanged.
                 </p>
                 <button
                   className="text-button"
@@ -676,8 +723,8 @@ function ProgressView({
         Look how far you’ve come.
       </h1>
       <p>
-        Progress lives in this browser for your current account. It’s a record
-        of practice, not a certification.
+        Progress saves in this browser. Sign in with your wallet to sync it
+        across devices. This is a record of practice, not a certification.
       </p>
       <div className="progress-stat">
         <strong>
@@ -735,7 +782,8 @@ function ProgressView({
           Learning checks run locally. Wallet creation, backup, and wallet
           network settings are self-confirmed. Connection is checked through
           your wallet, balances and execution through Devnet RPC, and the public
-          exercise code is checked locally.
+          exercise code is checked locally. Cloud sync verifies wallet
+          ownership; it does not independently verify lesson completion.
         </p>
       </aside>
     </div>

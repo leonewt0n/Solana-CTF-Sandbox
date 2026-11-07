@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "solana-learn",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "solana-learn-progress",
+      "database_id": "348c0ddd-568d-4dc8-b5c0-6a1c22fe4617",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

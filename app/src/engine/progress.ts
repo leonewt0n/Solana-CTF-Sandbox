@@ -12,6 +12,43 @@ export const emptyProgress = (): Progress => ({
   signature: null,
 });
 const connectIndex = STEPS.findIndex((step) => step.action === "connect");
+export function normalizeProgress(data: unknown): Progress | null {
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !("stepIndex" in data) ||
+    !("completed" in data)
+  )
+    return null;
+  const record = data as {
+    stepIndex: number;
+    completed: unknown[];
+    signature?: unknown;
+  };
+  if (!Number.isInteger(record.stepIndex) || !Array.isArray(record.completed))
+    return null;
+  // Only restore a contiguous completed prefix. Local storage is convenience, not proof.
+  const completed: string[] = [];
+  for (const step of STEPS) {
+    if (!record.completed.includes(step.id)) break;
+    completed.push(step.id);
+  }
+  const signature =
+    typeof record.signature === "string" &&
+    /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(record.signature)
+      ? record.signature
+      : null;
+  const txIndex = STEPS.findIndex((s) => s.action === "transaction");
+  if (!signature && completed.length > txIndex) completed.splice(txIndex);
+  return {
+    stepIndex: Math.max(
+      0,
+      Math.min(record.stepIndex, completed.length, STEPS.length - 1),
+    ),
+    completed,
+    signature,
+  };
+}
 export function readProgress(
   owner: string,
   storage: Pick<Storage, "getItem"> = localStorage,
@@ -20,29 +57,7 @@ export function readProgress(
     const raw = storage.getItem(STORAGE_PREFIX + owner);
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (!Number.isInteger(data.stepIndex) || !Array.isArray(data.completed))
-      return null;
-    // Only restore a contiguous completed prefix. Local storage is convenience, not proof.
-    const completed: string[] = [];
-    for (const step of STEPS) {
-      if (!data.completed.includes(step.id)) break;
-      completed.push(step.id);
-    }
-    const signature =
-      typeof data.signature === "string" &&
-      /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(data.signature)
-        ? data.signature
-        : null;
-    const txIndex = STEPS.findIndex((s) => s.action === "transaction");
-    if (!signature && completed.length > txIndex) completed.splice(txIndex);
-    return {
-      stepIndex: Math.max(
-        0,
-        Math.min(data.stepIndex, completed.length, STEPS.length - 1),
-      ),
-      completed,
-      signature,
-    };
+    return normalizeProgress(data);
   } catch {
     return null;
   }

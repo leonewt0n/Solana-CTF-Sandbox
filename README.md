@@ -4,9 +4,11 @@ Built for the "Best Beginner Hack" Track
 
 ## Current learning experience
 
-The frontend now presents a guided Solana learning walkthrough: create and back up a practice wallet, connect it, choose Devnet, receive free test SOL, inspect and sign a program call, and read its receipt and public exercise code. Essential instructions are visible; terminology and troubleshooting expand on demand. Progress is saved locally per account. Self-confirmed setup steps are labelled separately from wallet, RPC, and local answer checks.
+Solana Learn now offers an eight-module, 19-step beginner course, starting without a wallet: why Web3 exists, how blockchain records work, Solana and network tradeoffs, and common uses. It then guides wallet setup and Devnet practice, includes three safe scam scenarios, and finishes with explorer evidence and the public log-code exercise.
 
-See [the frontend README](app/README.md) for current commands, configuration, and verification limits. No real-money deposit, custody, or recovery-phrase input is involved. The live demo placeholder below is not a deployment claim.
+The dark neutral course interface uses larger text, compact original 3D accents, interactive 2D diagrams, learning checks with explanatory feedback, a searchable glossary, and reduced-motion-aware module celebrations. Progress remains local to the browser and account. No deposit, custody, recovery-phrase input, or real-wallet scam transaction is involved.
+
+See [the frontend README](app/README.md) for commands, content sources, configuration, progress-version behavior, and verification limits. The live demo placeholder below is not a deployment claim.
 
 ## Try it
 

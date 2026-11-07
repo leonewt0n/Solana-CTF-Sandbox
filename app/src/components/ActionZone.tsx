@@ -4,6 +4,7 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import type { MissionEngine } from "../engine/useMissionEngine";
 import { explorerTxUrl, PROGRAM_ID } from "../lib/constants";
 import { prepareMission } from "../lib/program";
+import { LessonQuiz } from "./LessonQuiz";
 
 const ERRORS: Record<string, string> = {
   rejected:
@@ -32,18 +33,27 @@ const VERIFICATION = {
   rpc: "Devnet RPC check",
   answer: "Local answer check",
   read: "Learning summary",
+  understanding: "Learning check",
 };
 export function ActionZone({ engine }: { engine: MissionEngine }) {
   const { step, status, passed, failReason, signature } = engine;
   const wallet = useWallet();
   const [answer, setAnswer] = useState("");
+  if (step.action === "quiz")
+    return (
+      <LessonQuiz
+        step={step}
+        passed={passed}
+        checkAnswer={engine.checkAnswer}
+      />
+    );
   return (
     <section className="practice-panel" aria-label="Hands-on practice">
       <div className="practice-heading">
         <span className="section-label">
           {step.action === "summary"
-            ? "YOUR LEARNING RECORD"
-            : "PUT IT INTO PRACTICE"}
+            ? "Your learning record"
+            : "Put it into practice"}
         </span>
         <span className="check-label">{VERIFICATION[step.verification]}</span>
       </div>
@@ -197,6 +207,10 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
             You can review any lesson from the outline.
           </p>
           <ul className="summary-list">
+            <li>
+              Web3 foundations and safe decisions{" "}
+              <span>Local learning checks</span>
+            </li>
             <li>
               Wallet setup and recovery backup <span>Self-confirmed</span>
             </li>

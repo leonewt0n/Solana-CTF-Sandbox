@@ -155,6 +155,12 @@ export function useMissionEngine(owner: string) {
     passed,
     storageFailed,
     canGoNext: passed || step.verification === "read",
+    checkAnswer: (optionId: string) => {
+      if (step.action !== "quiz" || !step.quiz || busy.current) return false;
+      const correct = optionId === step.quiz.correct;
+      if (correct) pass(step.id);
+      return correct;
+    },
     confirmManual: () => {
       if (step.verification === "self") pass(step.id);
     },

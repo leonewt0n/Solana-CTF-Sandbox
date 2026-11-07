@@ -1,43 +1,90 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { MISSIONS } from "../content/missions";
-import { useMissionEngine } from "../engine/useMissionEngine";
+import { MISSIONS, type Mission } from "../content/missions";
+import {
+  useMissionEngine,
+  type MissionEngine,
+} from "../engine/useMissionEngine";
 import { ActionZone } from "./ActionZone";
+import { LearningVisual } from "./LearningVisual";
+import { Celebration } from "./Celebration";
+import { Glossary } from "./Glossary";
+import { Icon } from "./Icon";
 
+type View = "overview" | "lesson" | "progress";
 export function Stage() {
   const { publicKey } = useWallet();
-  const owner = publicKey?.toBase58() ?? "anon";
-  // A new session on account change prevents old async work and wallet-specific state crossing accounts.
-  return <CourseSession key={owner} owner={owner} />;
+  const [view, setView] = useState<View>("overview");
+  return (
+    <CourseSession
+      key={publicKey?.toBase58() ?? "anon"}
+      owner={publicKey?.toBase58() ?? "anon"}
+      view={view}
+      setView={setView}
+    />
+  );
 }
-function CourseSession({ owner }: { owner: string }) {
+function CourseSession({
+  owner,
+  view,
+  setView,
+}: {
+  owner: string;
+  view: View;
+  setView: (view: View) => void;
+}) {
   const engine = useMissionEngine(owner);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
-  const { step, stepIndex, completed, steps, missionIndex } = engine;
-  const finished =
-    step.action === "summary" && completed.length === steps.length - 1;
-  const percent = finished
-    ? 100
-    : Math.round((completed.length / (steps.length - 1)) * 100);
+  const taskCount = engine.steps.length - 1;
+  const progress = Math.round(
+    (Math.min(engine.completed.length, taskCount) / taskCount) * 100,
+  );
+  const completedModules = MISSIONS.filter(
+    (m) =>
+      m.steps.every((s) => engine.completed.includes(s.id)) ||
+      (m.steps[0].action === "summary" && progress === 100),
+  ).length;
+  const resume = () => {
+    engine.navigate(Math.min(engine.completed.length, engine.steps.length - 1));
+    setView("lesson");
+    setOutlineOpen(false);
+  };
+  function openModule(m: Mission) {
+    const index = engine.steps.findIndex((s) => s.id === m.steps[0].id);
+    if (index <= engine.completed.length) {
+      engine.navigate(index);
+      setView("lesson");
+      setOutlineOpen(false);
+    }
+  }
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
       return;
     }
     heading.current?.focus();
-  }, [stepIndex]);
+    window.scrollTo?.({ top: 0, behavior: "instant" });
+  }, [view, engine.stepIndex]);
   return (
     <div className="learning-app">
-      <a className="skip-link" href="#lesson">
-        Skip to lesson
+      <a className="skip-link" href="#main-content">
+        Skip to content
       </a>
       <header className="site-header">
-        <a className="brand" href="/" aria-label="Solana Learn home">
-          <span className="brand-symbol" aria-hidden>
+        <a
+          className="brand"
+          href="#learn"
+          onClick={(event) => {
+            event.preventDefault();
+            if (engine.status !== "checking") setView("overview");
+          }}
+        >
+          <span className="brand-mark" aria-hidden>
             <i />
             <i />
             <i />
@@ -46,50 +93,60 @@ function CourseSession({ owner }: { owner: string }) {
             solana<span className="brand-light">learn</span>
           </span>
         </a>
-        <div className="header-divider" />
-        <span className="header-course">The essentials, in practice</span>
+        <nav className="header-tabs" aria-label="Main navigation">
+          <button
+            aria-current={view !== "progress" ? "page" : undefined}
+            disabled={engine.status === "checking"}
+            onClick={() => setView("overview")}
+          >
+            Learn
+          </button>
+          <button
+            aria-current={view === "progress" ? "page" : undefined}
+            disabled={engine.status === "checking"}
+            onClick={() => setView("progress")}
+          >
+            My progress
+          </button>
+        </nav>
         <div className="header-actions">
-          <span className="network-pill">
-            <span />
-            Devnet <span className="network-extra">· Test funds only</span>
-          </span>
+          <button
+            className="glossary-button"
+            onClick={() => setGlossaryOpen(true)}
+          >
+            <Icon name="book" size={18} />
+            <span>Glossary</span>
+          </button>
           <WalletMultiButton />
         </div>
       </header>
-      <div className="course-layout">
+      <div className="app-layout">
         <aside
           className={`course-sidebar ${outlineOpen ? "is-open" : ""}`}
           aria-label="Course outline"
         >
-          <div className="sidebar-top">
-            <span className="eyebrow">YOUR LEARNING PATH</span>
-            <h2>Solana essentials</h2>
-            <p>
-              Understand the action.
-              <br />
-              Then try it for yourself.
-            </p>
-          </div>
-          <div className="course-progress">
-            <div>
-              <span>Course progress</span>
-              <strong>{percent}%</strong>
+          <div className="sidebar-course">
+            <span className="eyebrow">YOUR FIRST STEPS</span>
+            <h2>Web3 essentials</h2>
+            <div className="sidebar-progress">
+              <progress
+                max="100"
+                value={progress}
+                aria-label="Course progress"
+              />
+              <span>{progress}%</span>
             </div>
-            <progress value={percent} max={100} aria-label="Course progress" />
-            <small>
-              {Math.min(completed.length, steps.length - 1)} of{" "}
-              {steps.length - 1} steps complete
-            </small>
           </div>
-          <nav aria-label="Lessons">
+          <nav aria-label="Course modules">
             {MISSIONS.map((mission, index) => {
-              const active = index === missionIndex;
               const complete =
-                mission.steps.every((s) => completed.includes(s.id)) ||
-                (index === 6 && finished);
-              const target = steps.findIndex(
+                mission.steps.every((s) => engine.completed.includes(s.id)) ||
+                (mission.steps[0].action === "summary" && progress === 100);
+              const target = engine.steps.findIndex(
                 (s) => s.id === mission.steps[0].id,
               );
+              const active = view === "lesson" && index === engine.missionIndex;
+              const locked = target > engine.completed.length;
               return (
                 <div
                   className={`outline-module ${active ? "active" : ""}`}
@@ -97,44 +154,55 @@ function CourseSession({ owner }: { owner: string }) {
                 >
                   <button
                     className="module-button"
-                    disabled={
-                      target > completed.length || engine.status === "checking"
-                    }
+                    disabled={locked || engine.status === "checking"}
                     aria-current={active ? "step" : undefined}
-                    onClick={() => {
-                      engine.navigate(target);
-                      setOutlineOpen(false);
-                    }}
+                    onClick={() => openModule(mission)}
                   >
                     <span
-                      className={`module-number ${complete ? "complete" : ""}`}
+                      className={`module-icon ${complete ? "complete" : ""}`}
                     >
-                      {complete ? "✓" : String(index + 1).padStart(2, "0")}
+                      <Icon
+                        name={complete ? "check" : mission.icon}
+                        size={19}
+                      />
                     </span>
                     <span>
                       <strong>{mission.name}</strong>
-                      <small>{mission.description}</small>
+                      <small>
+                        {complete
+                          ? "Completed"
+                          : locked
+                            ? "Coming up"
+                            : `${mission.steps.length} ${mission.steps.length === 1 ? "step" : "steps"}`}
+                      </small>
                     </span>
-                    {active && <span className="active-dot" />}
+                    {locked && <Icon name="lock" size={13} />}
                   </button>
                   {active && mission.steps.length > 1 && (
                     <div className="substeps">
-                      {mission.steps.map((s) => {
-                        const i = steps.findIndex((item) => item.id === s.id);
+                      {mission.steps.map((step) => {
+                        const i = engine.steps.findIndex(
+                          (s) => s.id === step.id,
+                        );
                         return (
                           <button
-                            key={s.id}
+                            key={step.id}
                             disabled={
-                              i > completed.length ||
+                              i > engine.completed.length ||
                               engine.status === "checking"
                             }
-                            aria-current={i === stepIndex ? "step" : undefined}
-                            onClick={() => engine.navigate(i)}
+                            aria-current={
+                              i === engine.stepIndex ? "step" : undefined
+                            }
+                            onClick={() => {
+                              engine.navigate(i);
+                              setOutlineOpen(false);
+                            }}
                           >
-                            <span aria-hidden>
-                              {completed.includes(s.id) ? "✓" : "·"}
+                            <span>
+                              {engine.completed.includes(step.id) ? "✓" : "·"}
                             </span>
-                            {s.title}
+                            {step.title}
                           </button>
                         );
                       })}
@@ -144,18 +212,14 @@ function CourseSession({ owner }: { owner: string }) {
               );
             })}
           </nav>
-          <div className="sidebar-note">
-            <span aria-hidden>↗</span>
-            <div>
-              <strong>A practice space, on purpose.</strong>
-              <p>
-                Free test funds. Your own wallet.
-                <br />
-                No deposits required.
-              </p>
+          <div className="sidebar-bottom">
+            <div className="practice-note">
+              <span className="status-dot" />
+              <div>
+                <strong>A safe place to practice</strong>
+                <p>Devnet only. No deposits.</p>
+              </div>
             </div>
-          </div>
-          <div className="restart-area">
             {!confirmReset ? (
               <button
                 className="text-button"
@@ -164,10 +228,10 @@ function CourseSession({ owner }: { owner: string }) {
                 Restart course
               </button>
             ) : (
-              <div>
+              <div className="reset-confirm">
                 <p>
-                  Clear this account’s course progress? Your wallet and funds
-                  stay unchanged.
+                  Clear this account’s course progress? Your wallet stays
+                  unchanged.
                 </p>
                 <button
                   className="text-button"
@@ -175,6 +239,7 @@ function CourseSession({ owner }: { owner: string }) {
                   onClick={() => {
                     engine.restart();
                     setConfirmReset(false);
+                    setView("overview");
                   }}
                 >
                   Reset progress
@@ -189,42 +254,273 @@ function CourseSession({ owner }: { owner: string }) {
             )}
           </div>
         </aside>
-        <main className="course-main" id="lesson">
+        <main className={`course-main view-${view}`} id="main-content">
           <button
             className="outline-toggle"
             aria-expanded={outlineOpen}
             onClick={() => setOutlineOpen(!outlineOpen)}
           >
-            {outlineOpen ? "Close" : "View"} course outline{" "}
-            <span>{percent}% complete</span>
+            <Icon name={outlineOpen ? "close" : "menu"} size={18} />
+            {outlineOpen ? "Close course outline" : "Course outline"}
+            <span>{progress}% complete</span>
           </button>
-          <div className="breadcrumb">
-            Solana essentials <span>/</span> {engine.mission.name}
-          </div>
           {engine.storageFailed && (
             <p className="feedback warning" role="status">
-              This browser could not save progress. You can continue, but your
-              place may be lost after refreshing.
+              This browser could not save progress. You can keep learning, but
+              your place may be lost after refreshing.
             </p>
           )}
-          <article className="lesson-content" key={step.id}>
-            <div className="lesson-meta">
-              <span className="eyebrow">
-                LESSON {String(missionIndex + 1).padStart(2, "0")}
-              </span>
-              <span className="meta-line" />
-              <span>
-                {stepIndex + 1} / {steps.length} steps
-              </span>
-            </div>
-            <h1 ref={heading} tabIndex={-1}>
-              {step.title}
-            </h1>
-            <p className="lesson-objective">{step.objective}</p>
-            <div className="lesson-why">
-              <span className="section-label">WHY THIS MATTERS</span>
-              <p>{step.why}</p>
-            </div>
+          {view === "overview" ? (
+            <Overview
+              engine={engine}
+              heading={heading}
+              progress={progress}
+              completedModules={completedModules}
+              resume={resume}
+              openModule={openModule}
+            />
+          ) : view === "progress" ? (
+            <ProgressView
+              engine={engine}
+              heading={heading}
+              progress={progress}
+              resume={resume}
+            />
+          ) : (
+            <Lesson engine={engine} heading={heading} progress={progress} />
+          )}
+          <footer className="page-footer">
+            <span>Understand the action. Then make your move.</span>
+            <span>
+              <span className="status-dot" />
+              Practice on Solana Devnet
+            </span>
+          </footer>
+        </main>
+      </div>
+      <Celebration completed={engine.completed} />
+      {glossaryOpen && <Glossary onClose={() => setGlossaryOpen(false)} />}
+    </div>
+  );
+}
+type HeadingRef = RefObject<HTMLHeadingElement | null>;
+function Overview({
+  engine,
+  heading,
+  progress,
+  completedModules,
+  resume,
+  openModule,
+}: {
+  engine: MissionEngine;
+  heading: HeadingRef;
+  progress: number;
+  completedModules: number;
+  resume: () => void;
+  openModule: (m: Mission) => void;
+}) {
+  return (
+    <div className="overview-content">
+      <div className="overview-kicker">
+        <span className="soft-pill">
+          <span className="status-dot" />
+          Free, hands-on learning
+        </span>
+        <span>Built for your very first time.</span>
+      </div>
+      <section className="overview-hero">
+        <div>
+          <h1 ref={heading} tabIndex={-1}>
+            A little less crypto confusion.
+          </h1>
+          <p>
+            Understand Web3, get to know Solana, and learn to use a wallet with
+            confidence. One clear idea at a time.
+          </p>
+          <div className="hero-actions">
+            <button className="button button-primary" onClick={resume}>
+              {engine.completed.length
+                ? "Continue learning"
+                : "Start from the beginning"}
+              <Icon name="arrow" size={18} />
+            </button>
+            <span>
+              <Icon name="clock" size={16} />
+              About 45 min · Go at your own pace
+            </span>
+          </div>
+        </div>
+        <div className="hero-art">
+          <img
+            src="/illustrations/wallet-keys.png"
+            alt=""
+            width="116"
+            height="116"
+          />
+          <span>
+            Small steps.
+            <br />
+            Useful skills.
+          </span>
+        </div>
+      </section>
+      <div className="learning-benefits">
+        <div>
+          <span className="benefit-icon">
+            <Icon name="book" />
+          </span>
+          <div>
+            <strong>Make sense of it</strong>
+            <p>Plain explanations. Less jargon.</p>
+          </div>
+        </div>
+        <div>
+          <span className="benefit-icon blue">
+            <Icon name="activity" />
+          </span>
+          <div>
+            <strong>Try, don’t just read</strong>
+            <p>Small experiments and real practice.</p>
+          </div>
+        </div>
+        <div>
+          <span className="benefit-icon amber">
+            <Icon name="shield" />
+          </span>
+          <div>
+            <strong>Learn without a deposit</strong>
+            <p>Simulations and free test funds.</p>
+          </div>
+        </div>
+      </div>
+      <section className="path-section" aria-labelledby="path-title">
+        <div className="section-heading">
+          <div>
+            <span className="eyebrow">THE BEGINNER PATH</span>
+            <h2 id="path-title">From “what is this?” to “I get it.”</h2>
+          </div>
+          <span>
+            {completedModules} / {MISSIONS.length} modules
+          </span>
+        </div>
+        <div className="module-grid">
+          {MISSIONS.map((mission, index) => {
+            const target = engine.steps.findIndex(
+              (s) => s.id === mission.steps[0].id,
+            );
+            const complete =
+              mission.steps.every((s) => engine.completed.includes(s.id)) ||
+              (mission.steps[0].action === "summary" && progress === 100);
+            const unlocked = target <= engine.completed.length;
+            return (
+              <button
+                key={mission.id}
+                className={`course-card ${unlocked && !complete ? "next-card" : ""}`}
+                disabled={!unlocked}
+                onClick={() => openModule(mission)}
+              >
+                <div className={`card-symbol tone-${index % 4}`}>
+                  <Icon name={mission.icon} size={23} />
+                </div>
+                <div className="card-content">
+                  <div className="card-metadata">
+                    <span>MODULE {String(index + 1).padStart(2, "0")}</span>
+                    <span>
+                      <Icon name="clock" size={13} />
+                      {mission.minutes} min
+                    </span>
+                  </div>
+                  <h3>{mission.name}</h3>
+                  <p>{mission.description}</p>
+                  <span className={`card-state ${complete ? "done" : ""}`}>
+                    {complete ? (
+                      <>
+                        <Icon name="check" size={14} />
+                        Completed · Review
+                      </>
+                    ) : unlocked ? (
+                      <>
+                        {target === engine.completed.length
+                          ? "Up next"
+                          : "Continue"}
+                        <Icon name="arrow" size={14} />
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="lock" size={13} />
+                        Unlocks as you learn
+                      </>
+                    )}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      <div className="course-reassurance">
+        <Icon name="info" size={19} />
+        <p>
+          No wallet needed to begin. When you reach hands-on practice, we’ll
+          walk you through setting up a fresh one.
+        </p>
+      </div>
+    </div>
+  );
+}
+function Lesson({
+  engine,
+  heading,
+  progress,
+}: {
+  engine: MissionEngine;
+  heading: HeadingRef;
+  progress: number;
+}) {
+  const { step, stepIndex } = engine;
+  return (
+    <div className="lesson-page">
+      <div className="breadcrumb">
+        <span>Web3 essentials</span>
+        <Icon name="chevron" size={13} />
+        <span>{engine.mission.name}</span>
+      </div>
+      <div className="lesson-layout">
+        <article className="lesson-content" key={step.id}>
+          <div className="lesson-meta">
+            <span className="soft-pill">
+              Module {String(engine.missionIndex + 1).padStart(2, "0")}
+            </span>
+            <span>
+              {engine.mission.steps.findIndex((s) => s.id === step.id) + 1} of{" "}
+              {engine.mission.steps.length} steps
+            </span>
+          </div>
+          <h1 ref={heading} tabIndex={-1}>
+            {step.title}
+          </h1>
+          <p className="lesson-objective">{step.objective}</p>
+          <section className="lesson-intro">
+            <h2>
+              {step.action === "quiz"
+                ? "Start with something familiar"
+                : "Before you begin"}
+            </h2>
+            <p>{step.why}</p>
+          </section>
+          {step.diagram && <LearningVisual kind={step.diagram} />}{" "}
+          {step.explanation && (
+            <section
+              className="lesson-explanation"
+              aria-label="Concept explained"
+            >
+              <h2>Let’s unpack that.</h2>
+              {step.explanation.map((p) => (
+                <p key={p}>{p}</p>
+              ))}
+            </section>
+          )}
+          {step.instructions.length > 0 && (
             <section
               className="instructions"
               aria-labelledby="instructions-heading"
@@ -235,100 +531,213 @@ function CourseSession({ owner }: { owner: string }) {
                   : "Here’s what to do"}
               </h2>
               <ol>
-                {step.instructions.map((instruction, index) => (
-                  <li key={instruction}>
+                {step.instructions.map((text, index) => (
+                  <li key={text}>
                     <span className="instruction-number" aria-hidden>
                       {index + 1}
                     </span>
-                    <p>{instruction}</p>
+                    <p>{text}</p>
                   </li>
                 ))}
               </ol>
             </section>
-            {step.safety && (
-              <aside className="safety-note">
-                <span className="safety-icon" aria-hidden>
-                  !
-                </span>
-                <div>
-                  <strong>Keep this in mind</strong>
-                  <p>{step.safety}</p>
-                </div>
-              </aside>
-            )}
-            <ActionZone engine={engine} />
+          )}
+          {step.safety && (
+            <aside className="safety-note">
+              <Icon name="shield" size={21} />
+              <div>
+                <strong>Keep this in mind</strong>
+                <p>{step.safety}</p>
+              </div>
+            </aside>
+          )}
+          <ActionZone engine={engine} />
+          {step.action !== "quiz" && (
             <section className="expected-result">
-              <span className="result-icon" aria-hidden>
-                ↳
-              </span>
+              <Icon name="check" size={19} />
               <div>
                 <h2>What to expect</h2>
                 <p>{step.expected}</p>
               </div>
             </section>
-            <div className="lesson-details">
-              {step.terms.length > 0 && (
-                <details>
-                  <summary>
-                    Understand the terms <span aria-hidden>+</span>
-                  </summary>
-                  <dl>
-                    {step.terms.map((term) => (
-                      <div key={term.term}>
-                        <dt>{term.term}</dt>
-                        <dd>{term.definition}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </details>
-              )}
+          )}
+          <div className="lesson-details">
+            {step.terms.length > 0 && (
               <details>
                 <summary>
-                  Having trouble? <span aria-hidden>+</span>
+                  <span>
+                    <Icon name="book" size={17} />A little less jargon
+                  </span>
+                  <span aria-hidden>+</span>
                 </summary>
-                <p>{step.troubleshooting}</p>
-                {step.source && (
-                  <a href={step.source.href} target="_blank" rel="noreferrer">
-                    {step.source.label} ↗
-                  </a>
-                )}
+                <dl>
+                  {step.terms.map((t) => (
+                    <div key={t.term}>
+                      <dt>{t.term}</dt>
+                      <dd>{t.definition}</dd>
+                    </div>
+                  ))}
+                </dl>
               </details>
+            )}
+            <details>
+              <summary>
+                <span>
+                  <Icon name="info" size={17} />
+                  {step.action === "quiz" ? "Need a hint?" : "Having trouble?"}
+                </span>
+                <span aria-hidden>+</span>
+              </summary>
+              <p>{step.troubleshooting}</p>
+            </details>
+          </div>
+          {step.source && (
+            <div className="lesson-source">
+              <span>Keep exploring</span>
+              <a href={step.source.href} target="_blank" rel="noreferrer">
+                {step.source.label}
+                <Icon name="external" size={14} />
+              </a>
             </div>
-            <footer className="lesson-navigation">
+          )}
+          <footer className="lesson-navigation">
+            <button
+              className="button button-quiet"
+              disabled={stepIndex === 0 || engine.status === "checking"}
+              onClick={engine.goBack}
+            >
+              <Icon name="back" size={17} />
+              Back
+            </button>
+            <span>
+              {engine.passed
+                ? "Ready when you are."
+                : "Learn at your own pace."}
+            </span>
+            {step.action !== "summary" && (
               <button
-                className="button button-quiet"
-                disabled={stepIndex === 0 || engine.status === "checking"}
-                onClick={engine.goBack}
+                className="button button-primary"
+                disabled={!engine.canGoNext || engine.status === "checking"}
+                onClick={engine.goNext}
               >
-                ← Back
+                {stepIndex === engine.steps.length - 2
+                  ? "Review your progress"
+                  : "Continue"}
+                <Icon name="arrow" size={17} />
               </button>
-              <span>
-                {step.action === "summary"
-                  ? "Keep learning at your own pace."
-                  : engine.passed
-                    ? "Ready for the next step"
-                    : "Take your time. There’s no timer."}
-              </span>
-              {step.action !== "summary" && (
-                <button
-                  className="button button-primary"
-                  disabled={!engine.canGoNext || engine.status === "checking"}
-                  onClick={engine.goNext}
-                >
-                  {stepIndex === steps.length - 2
-                    ? "Review your progress"
-                    : "Continue"}{" "}
-                  <span aria-hidden>→</span>
-                </button>
-              )}
-            </footer>
-          </article>
-          <footer className="page-footer">
-            <span>Learn by doing. Understand before signing.</span>
-            <span>Practice on Solana Devnet</span>
+            )}
           </footer>
-        </main>
+        </article>
+        <aside className="lesson-rail">
+          <div className="rail-card">
+            <span className="eyebrow">YOU’RE LEARNING</span>
+            <span className="rail-icon">
+              <Icon name={engine.mission.icon} size={24} />
+            </span>
+            <h3>{engine.mission.name}</h3>
+            <p>{engine.mission.description}</p>
+            <div className="rail-progress">
+              <progress
+                max="100"
+                value={progress}
+                aria-label="Overall completion"
+              />
+              <span>{progress}% of the course</span>
+            </div>
+          </div>
+          <div className="rail-note">
+            <Icon name="shield" size={17} />
+            <p>
+              {step.action === "quiz"
+                ? "Make a choice. Get feedback. Try again. No wallet requests in these learning checks."
+                : "Keep your recovery phrase private. This course never needs to see it."}
+            </p>
+          </div>
+        </aside>
       </div>
+    </div>
+  );
+}
+function ProgressView({
+  engine,
+  heading,
+  progress,
+  resume,
+}: {
+  engine: MissionEngine;
+  heading: HeadingRef;
+  progress: number;
+  resume: () => void;
+}) {
+  return (
+    <div className="progress-page">
+      <span className="eyebrow">YOUR LEARNING RECORD</span>
+      <h1 ref={heading} tabIndex={-1}>
+        Look how far you’ve come.
+      </h1>
+      <p>
+        Progress lives in this browser for your current account. It’s a record
+        of practice, not a certification.
+      </p>
+      <div className="progress-stat">
+        <strong>
+          {progress}
+          <span>%</span>
+        </strong>
+        <div>
+          <h2>
+            {Math.min(engine.completed.length, engine.steps.length - 1)} steps
+            completed
+          </h2>
+          <p>Every small step adds up.</p>
+        </div>
+        <button className="button button-primary" onClick={resume}>
+          Keep learning
+          <Icon name="arrow" size={16} />
+        </button>
+      </div>
+      <div className="progress-modules">
+        {MISSIONS.map((m) => {
+          const count = m.steps.filter((s) =>
+            engine.completed.includes(s.id),
+          ).length;
+          return (
+            <div key={m.id}>
+              <span className="card-symbol">
+                <Icon name={m.icon} />
+              </span>
+              <div>
+                <h3>{m.name}</h3>
+                <p>
+                  {m.steps[0].action === "summary"
+                    ? progress === 100
+                      ? "Ready to review"
+                      : "Coming up"
+                    : `${count} of ${m.steps.length} steps`}
+                </p>
+              </div>
+              <Icon
+                name={
+                  count === m.steps.length ||
+                  (m.steps[0].action === "summary" && progress === 100)
+                    ? "check"
+                    : "clock"
+                }
+                size={18}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <aside className="verification-note">
+        <h2>What this record means</h2>
+        <p>
+          Learning checks run locally. Wallet creation, backup, and wallet
+          network settings are self-confirmed. Connection is checked through
+          your wallet, balances and execution through Devnet RPC, and the public
+          exercise code is checked locally.
+        </p>
+      </aside>
     </div>
   );
 }

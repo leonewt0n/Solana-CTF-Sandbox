@@ -1,0 +1,66 @@
+{
+  "status": "superseded-design-exploration",
+  "assets": [
+    {
+      "file": "01-style-board.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGB",
+      "bytes": 1570764,
+      "sha256": "29f6f4276e2a675b9250312f830a5be0c41f3f9a2a5adbd76d883bda862c5bc0"
+    },
+    {
+      "file": "02-desktop-lesson.png",
+      "width": 1568,
+      "height": 1003,
+      "mode": "RGB",
+      "bytes": 1631858,
+      "sha256": "098f996da8455b986d82cd6748b7627a845dc8b005108afd5bd30d78541e67e2"
+    },
+    {
+      "file": "03-mobile-lesson.png",
+      "width": 948,
+      "height": 1659,
+      "mode": "RGB",
+      "bytes": 1600554,
+      "sha256": "5822826960e49bcffef783476bda7de03c2f6d9591a2ca6cd2d5a45ae5e6ea93"
+    },
+    {
+      "file": "04-shared-records.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGBA",
+      "bytes": 1690304,
+      "sha256": "bd2c60ef138a62b111ee0c30c1c8770834d48fe1ab478b0c4c1d3d9bf20b51b0",
+      "alpha_extrema": [
+        0,
+        254
+      ]
+    },
+    {
+      "file": "05-wallet-and-keys.png",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 1243482,
+      "sha256": "a670ca4a0f59700f71a87e01178ad93d291101a8a8e3cc82da0df70bbf6bb2f4",
+      "alpha_extrema": [
+        0,
+        255
+      ]
+    },
+    {
+      "file": "06-transaction-journey.png",
+      "width": 1536,
+      "height": 1024,
+      "mode": "RGBA",
+      "bytes": 1298506,
+      "sha256": "a663f68e5ebdf61c5d52f9ac4d0a9f538c553fd6349fa3e32b551a8d9ce34a03",
+      "alpha_extrema": [
+        0,
+        254
+      ]
+    }
+  ],
+  "note": "Historical preview assets. The implemented UI uses a restrained dark-neutral direction and small artwork accents."
+}

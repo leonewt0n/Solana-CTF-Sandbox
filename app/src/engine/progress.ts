@@ -1,6 +1,6 @@
 import { flattenSteps } from "../content/missions";
 export const STEPS = flattenSteps();
-export const STORAGE_PREFIX = "solana-learn:v2:";
+export const STORAGE_PREFIX = "solana-learn:v3:";
 export type Progress = {
   stepIndex: number;
   completed: string[];
@@ -11,7 +11,7 @@ export const emptyProgress = (): Progress => ({
   completed: [],
   signature: null,
 });
-const setupIds = new Set(["1.1", "1.2", "1.3"]);
+const connectIndex = STEPS.findIndex((step) => step.action === "connect");
 export function readProgress(
   owner: string,
   storage: Pick<Storage, "getItem"> = localStorage,
@@ -50,13 +50,12 @@ export function readProgress(
 export function initialProgress(owner: string): Progress {
   const saved = readProgress(owner);
   if (saved) return saved;
-  // Carry only acknowledged wallet-setup lessons into a newly connected account.
+  // Only the contiguous pre-connection learning prefix follows the learner into a new account.
+  // Later wallet activity, transaction receipts, and results remain account-specific.
   const setup =
     owner === "anon"
       ? []
-      : (readProgress("anon")?.completed ?? []).filter((id) =>
-          setupIds.has(id),
-        );
+      : (readProgress("anon")?.completed ?? []).slice(0, connectIndex);
   return { ...emptyProgress(), completed: setup, stepIndex: setup.length };
 }
 export function completeStep(progress: Progress, id: string): Progress {

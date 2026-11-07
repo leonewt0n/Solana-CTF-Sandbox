@@ -1,12 +1,15 @@
 :root {
-  --accent: #196b57;
-  --accent-dark: #105340;
-  --accent-soft: #e9f3ee;
-  --ink: #202b29;
-  --muted: #69746f;
-  --line: #e2e7e2;
-  --page: #fffefa;
-  --sidebar: #f5f6f1;
+  --page: #101011;
+  --surface: #19191c;
+  --surface-raised: #222225;
+  --surface-hover: #29292d;
+  --ink: #f1f0f4;
+  --muted: #aaa9b1;
+  --line: #2c2c31;
+  --accent: #c3b6f4;
+  --accent-ink: #1e1831;
+  --accent-soft: #292532;
+  --success: #a2d5bd;
   --font-body:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }

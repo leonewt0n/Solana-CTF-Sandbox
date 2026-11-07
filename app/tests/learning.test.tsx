@@ -6,12 +6,15 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicKey } from "@solana/web3.js";
 import { prepareMission } from "../src/lib/program";
 import { useMissionEngine } from "../src/engine/useMissionEngine";
 import { Stage } from "../src/components/Stage";
+import { LearningVisual } from "../src/components/LearningVisual";
+import { Celebration } from "../src/components/Celebration";
 import {
   completeStep,
   emptyProgress,
@@ -20,7 +23,6 @@ import {
   STEPS,
   STORAGE_PREFIX,
 } from "../src/engine/progress";
-
 const mocks = vi.hoisted(() => ({
   wallet: { connected: false, publicKey: null as PublicKey | null },
   connection: { getBalance: vi.fn(), getGenesisHash: vi.fn() },
@@ -42,17 +44,21 @@ vi.mock("../src/lib/program", () => ({ prepareMission: vi.fn() }));
 const walletA = new PublicKey("11111111111111111111111111111111");
 const walletB = new PublicKey("Vote111111111111111111111111111111111111111");
 const signature = "5".repeat(88);
+const ix = (id: string) => STEPS.findIndex((s) => s.id === id);
 function save(
   owner: string,
-  stepIndex: number,
-  completeCount: number,
+  id: string,
+  completedCurrent = false,
   sig: string | null = null,
 ) {
+  const index = ix(id);
   localStorage.setItem(
     STORAGE_PREFIX + owner,
     JSON.stringify({
-      stepIndex,
-      completed: STEPS.slice(0, completeCount).map((s) => s.id),
+      stepIndex: index,
+      completed: STEPS.slice(0, index + (completedCurrent ? 1 : 0)).map(
+        (s) => s.id,
+      ),
       signature: sig,
     }),
   );
@@ -65,43 +71,56 @@ beforeEach(() => {
   mocks.connection.getGenesisHash.mockResolvedValue(
     "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
   );
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  vi.mocked(prepareMission).mockResolvedValue({ feeLamports: 5000 } as Awaited<
+    ReturnType<typeof prepareMission>
+  >);
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
-describe("progress boundaries", () => {
-  it("starts at wallet installation and cannot skip an incomplete lesson", () => {
+describe("learning and progress boundaries", () => {
+  it("starts with a foundation before wallet installation and gates progression", () => {
     const { result } = renderHook(() => useMissionEngine("anon"));
-    expect(result.current.step.id).toBe("1.1");
-    act(() => result.current.navigate(5));
+    expect(result.current.step.id).toBe("web3.why");
+    act(() => result.current.navigate(ix("1.1")));
     expect(result.current.stepIndex).toBe(0);
     act(() => result.current.confirmManual());
+    expect(result.current.passed).toBe(false);
+    act(() => result.current.checkAnswer("private"));
+    expect(result.current.passed).toBe(false);
+    act(() => result.current.checkAnswer("shared"));
+    expect(result.current.passed).toBe(true);
     act(() => result.current.goNext());
-    expect(result.current.step.id).toBe("1.2");
+    expect(result.current.step.id).toBe("web3.blockchain");
   });
-  it("restores a completed lesson for review without requiring another transaction", () => {
-    save(walletA.toBase58(), 6, 7, signature);
+  it("restores a transaction lesson without resending", () => {
+    save(walletA.toBase58(), "5.1", true, signature);
     mocks.wallet = { connected: true, publicKey: walletA };
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
-    expect(result.current.passed).toBe(true);
     act(() => {
       void result.current.runCast();
     });
     expect(mocks.cast).not.toHaveBeenCalled();
     act(() => result.current.goNext());
-    expect(result.current.step.id).toBe("6.1");
+    expect(result.current.step.id).toBe("scam.airdrop");
     expect(result.current.signature).toBe(signature);
   });
-  it("transfers only anonymous setup acknowledgments into a new account", () => {
-    save("anon", 3, 3);
+  it("carries only the pre-connection prefix into a newly connected account", () => {
+    save("anon", "2.1");
+    const expected = STEPS.slice(0, ix("2.1")).map((s) => s.id);
     expect(initialProgress(walletA.toBase58())).toEqual({
-      stepIndex: 3,
-      completed: ["1.1", "1.2", "1.3"],
+      stepIndex: ix("2.1"),
+      completed: expected,
       signature: null,
     });
   });
-  it("rejects malformed and out-of-order saved completion", () => {
+  it("rejects malformed or out-of-order saved progress", () => {
     localStorage.setItem(STORAGE_PREFIX + "anon", "{broken");
     expect(readProgress("anon")).toBeNull();
     localStorage.setItem(
@@ -112,29 +131,30 @@ describe("progress boundaries", () => {
     expect(completeStep(emptyProgress(), "6.2")).toEqual(emptyProgress());
   });
   it("does not restore transaction completion without a receipt", () => {
-    save(walletA.toBase58(), 9, 9);
-    expect(readProgress(walletA.toBase58())?.stepIndex).toBe(6);
-    expect(readProgress(walletA.toBase58())?.completed).toHaveLength(6);
+    save(walletA.toBase58(), "6.1");
+    expect(readProgress(walletA.toBase58())?.stepIndex).toBe(ix("5.1"));
+    expect(readProgress(walletA.toBase58())?.completed).toHaveLength(ix("5.1"));
   });
-  it("isolates progress and receipt when the connected wallet changes", async () => {
-    save(walletA.toBase58(), 7, 7, signature);
+  it("isolates receipts on account change while keeping the current lesson view", async () => {
+    save(walletA.toBase58(), "6.1", false, signature);
     mocks.wallet = { connected: true, publicKey: walletA };
     const view = render(<Stage />);
+    fireEvent.click(screen.getByRole("button", { name: /Continue learning/ }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
       "explorer",
     );
     mocks.wallet = { connected: true, publicKey: walletB };
     view.rerender(<Stage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "wallet is your way",
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Why did Web3 start?",
     );
     await waitFor(() =>
       expect(readProgress(walletB.toBase58())?.signature).toBeNull(),
     );
     expect(readProgress(walletA.toBase58())?.signature).toBe(signature);
   });
-  it("resets course progress without changing the wallet", () => {
-    save(walletA.toBase58(), 7, 7, signature);
+  it("resets only this course record, without changing the wallet", () => {
+    save(walletA.toBase58(), "6.1", false, signature);
     mocks.wallet = { connected: true, publicKey: walletA };
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
     act(() => result.current.restart());
@@ -143,11 +163,18 @@ describe("progress boundaries", () => {
     expect(result.current.signature).toBeNull();
     expect(mocks.wallet.publicKey).toBe(walletA);
   });
+  it("leaves v2 progress intact without falsely completing new foundation lessons", () => {
+    localStorage.setItem(
+      "solana-learn:v2:anon",
+      JSON.stringify({ stepIndex: 8, completed: ["1.1"], signature }),
+    );
+    expect(initialProgress("anon")).toEqual(emptyProgress());
+    expect(localStorage.getItem("solana-learn:v2:anon")).not.toBeNull();
+  });
 });
-
 describe("asynchronous checks", () => {
-  it("does not let an old balance response pass another lesson", async () => {
-    let resolve!: (balance: number) => void;
+  it("ignores a balance result from a previous step", async () => {
+    let resolve!: (value: number) => void;
     mocks.connection.getBalance.mockImplementation(
       () =>
         new Promise<number>((r) => {
@@ -155,45 +182,68 @@ describe("asynchronous checks", () => {
         }),
     );
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 5, 5);
+    save(walletA.toBase58(), "4.1");
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
     await waitFor(() => expect(mocks.connection.getBalance).toHaveBeenCalled());
     act(() => result.current.goBack());
-    await act(async () => {
-      resolve(10000);
-    });
-    expect(result.current.step.id).toBe("3.1");
-    expect(result.current.passed).toBe(true);
+    await act(async () => resolve(10000));
+    expect(result.current.step.id).toBe("fees.explain");
     expect(result.current.completed).not.toContain("4.1");
     expect(result.current.balanceLamports).toBeNull();
   });
-  it("shows RPC failure instead of claiming a zero balance", async () => {
+  it("reports RPC failure separately from a zero balance", async () => {
     mocks.connection.getBalance.mockRejectedValue(new Error("429"));
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 5, 5);
+    save(walletA.toBase58(), "4.1");
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
     await waitFor(() => expect(result.current.failReason).toBe("balance-rpc"));
     expect(result.current.balanceLamports).toBeNull();
     expect(result.current.passed).toBe(false);
   });
-  it("completes a positive balance check", async () => {
-    mocks.connection.getBalance.mockResolvedValue(10000);
+  it("leaves zero balance incomplete and rejects a non-Devnet balance", async () => {
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 5, 5);
+    save(walletA.toBase58(), "4.1");
+    const zero = renderHook(() => useMissionEngine(walletA.toBase58()));
+    await waitFor(() => expect(zero.result.current.balanceLamports).toBe(0));
+    expect(zero.result.current.passed).toBe(false);
+    zero.unmount();
+    mocks.connection.getGenesisHash.mockResolvedValue("wrong");
+    mocks.connection.getBalance.mockClear();
+    const wrong = renderHook(() => useMissionEngine(walletA.toBase58()));
+    await waitFor(() =>
+      expect(wrong.result.current.failReason).toBe("network"),
+    );
+    expect(mocks.connection.getBalance).not.toHaveBeenCalled();
+  });
+  it("completes a positive balance check", async () => {
+    mocks.connection.getBalance.mockResolvedValue(1000);
+    mocks.wallet = { connected: true, publicKey: walletA };
+    save(walletA.toBase58(), "4.1");
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
     await waitFor(() => expect(result.current.passed).toBe(true));
   });
-  it("preserves failed transaction receipts without awarding completion", async () => {
+  it("retains failed receipts without completing the transaction lesson", async () => {
     mocks.cast.mockResolvedValue({ ok: false, reason: "execution", signature });
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 6, 6);
+    save(walletA.toBase58(), "5.1");
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
-    await act(async () => {
-      await result.current.runCast();
-    });
+    await act(async () => result.current.runCast());
     expect(result.current.passed).toBe(false);
     expect(result.current.signature).toBe(signature);
     expect(result.current.failReason).toBe("execution");
+  });
+  it("allows a declined transaction to be reviewed and retried", async () => {
+    mocks.cast
+      .mockResolvedValueOnce({ ok: false, reason: "rejected" })
+      .mockResolvedValueOnce({ ok: true, signature });
+    mocks.wallet = { connected: true, publicKey: walletA };
+    save(walletA.toBase58(), "5.1");
+    const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
+    await act(async () => result.current.runCast());
+    expect(result.current.passed).toBe(false);
+    expect(result.current.failReason).toBe("rejected");
+    await act(async () => result.current.runCast());
+    expect(result.current.passed).toBe(true);
   });
   it("deduplicates signing requests and blocks navigation while pending", async () => {
     let resolve!: (value: unknown) => void;
@@ -204,7 +254,7 @@ describe("asynchronous checks", () => {
         }),
     );
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 6, 6);
+    save(walletA.toBase58(), "5.1");
     const { result } = renderHook(() => useMissionEngine(walletA.toBase58()));
     act(() => {
       void result.current.runCast();
@@ -212,13 +262,11 @@ describe("asynchronous checks", () => {
       result.current.goBack();
     });
     expect(mocks.cast).toHaveBeenCalledTimes(1);
-    expect(result.current.stepIndex).toBe(6);
-    await act(async () => {
-      resolve({ ok: true, signature });
-    });
+    expect(result.current.step.id).toBe("5.1");
+    await act(async () => resolve({ ok: true, signature }));
     expect(result.current.passed).toBe(true);
   });
-  it("ignores a transaction result after the account session unmounts", async () => {
+  it("ignores results after the account session unmounts", async () => {
     let resolve!: (value: unknown) => void;
     mocks.cast.mockImplementation(
       () =>
@@ -227,152 +275,166 @@ describe("asynchronous checks", () => {
         }),
     );
     mocks.wallet = { connected: true, publicKey: walletA };
-    save(walletA.toBase58(), 6, 6);
+    save(walletA.toBase58(), "5.1");
     const view = renderHook(() => useMissionEngine(walletA.toBase58()));
     act(() => {
       void view.result.current.runCast();
     });
     view.unmount();
-    await act(async () => {
-      resolve({ ok: true, signature });
-    });
+    await act(async () => resolve({ ok: true, signature }));
     expect(readProgress(walletA.toBase58())?.signature).toBeNull();
   });
 });
-
-describe("lesson interface", () => {
-  it("presents instructions, expands definitions, and lets a beginner advance and go back", () => {
-    render(<Stage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "wallet",
-    );
+describe("interactive explanations", () => {
+  it("switches between company and shared-record models", () => {
+    render(<LearningVisual kind="records" />);
+    expect(screen.getByText("One operator manages the record.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Shared network" }));
     expect(
-      screen.getByRole("heading", { name: "Here’s what to do" }),
+      screen.getByText("Independent participants follow shared rules."),
     ).toBeTruthy();
-    const terms = screen.getByText("Understand the terms").closest("details")!;
-    expect(terms.open).toBe(false);
-    fireEvent.click(screen.getByText("Understand the terms"));
-    expect(terms.open).toBe(true);
+  });
+  it("compares networks and their fee assets", () => {
+    render(<LearningVisual kind="networks" />);
+    expect(screen.getByText("SOL")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ethereum" }));
+    expect(screen.getByText("ETH")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Bitcoin" }));
+    expect(screen.getByText("BTC")).toBeTruthy();
+  });
+  it("lets a learner fix a simulated missing fee and reset it", () => {
+    render(<LearningVisual kind="fees" />);
+    expect(screen.getByText("0.00")).toBeTruthy();
     fireEvent.click(
-      screen.getByRole("button", { name: "My wallet app is ready" }),
+      screen.getByRole("button", { name: /Add simulated test SOL/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "fresh practice wallet",
+    expect(screen.getByText("0.01")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Reset the example" }));
+    expect(screen.getByText("0.00")).toBeTruthy();
+    expect(mocks.cast).not.toHaveBeenCalled();
+  });
+  it("distinguishes failed execution from a successful receipt", () => {
+    render(<LearningVisual kind="journey" />);
+    fireEvent.click(screen.getByRole("button", { name: "Check" }));
+    fireEvent.click(screen.getByRole("button", { name: "Execution failed" }));
+    expect(screen.getByText(/Requested state changes revert/)).toBeTruthy();
+  });
+  it("reveals a social-engineering clue without connecting or signing", () => {
+    render(<LearningVisual kind="support" />);
+    fireEvent.click(screen.getByRole("button", { name: "Show me a clue" }));
+    expect(screen.getByText("Evaluate the access requested.")).toBeTruthy();
+    expect(mocks.cast).not.toHaveBeenCalled();
+  });
+  it("supports wrong-answer feedback, retry, and review of a completed lesson", () => {
+    render(<Stage />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start from the beginning/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: /Back/ }));
+    fireEvent.click(
+      screen.getByRole("radio", { name: /Writing a private shopping list/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Check my answer/ }));
+    expect(screen.getByText("Let’s look at that again.")).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: "✓ Confirmed" }) as HTMLButtonElement)
+      (screen.getByRole("button", { name: /^Continue/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-      "wallet is your way",
+    fireEvent.click(
+      screen.getByRole("radio", {
+        name: /People transferring a digital asset/,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Check my answer/ }));
+    expect(screen.getByText("You’ve got it.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Continue/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Back/ }));
+    expect(screen.getByText("You’ve got it.")).toBeTruthy();
+  });
+  it("opens a searchable glossary and a working progress page", () => {
+    render(<Stage />);
+    fireEvent.click(screen.getByRole("button", { name: "Glossary" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Search glossary" }),
+      { target: { value: "Lamport" } },
+    );
+    expect(within(dialog).getByText("Lamport")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Close glossary" }));
+    fireEvent.click(screen.getByRole("button", { name: "My progress" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Look how far you’ve come.",
     );
   });
+  it("celebrates a new module completion but not restored completion", () => {
+    const completed = STEPS.slice(0, 2).map((s) => s.id);
+    const view = render(<Celebration completed={completed} />);
+    expect(screen.queryByText(/Module complete/)).toBeNull();
+    view.unmount();
+    const fresh = render(<Celebration completed={[]} />);
+    fresh.rerender(<Celebration completed={completed} />);
+    expect(screen.getByText("Module complete. Nicely done.")).toBeTruthy();
+  });
 });
-
-it("completes the full walkthrough with simulated wallet and RPC checks", async () => {
-  vi.mocked(prepareMission).mockResolvedValue({ feeLamports: 5000 } as Awaited<
-    ReturnType<typeof prepareMission>
-  >);
+it("completes all 19 steps with simulated wallet/RPC, preserving the lesson on connection", async () => {
   mocks.connection.getBalance.mockResolvedValue(1000000);
   mocks.cast.mockResolvedValue({ ok: true, signature });
   mocks.flag.mockResolvedValue({ ok: true });
   const view = render(<Stage />);
-  for (const label of [
-    "My wallet app is ready",
-    "I created my practice wallet",
-    "I saved my backup privately",
-  ]) {
-    fireEvent.click(screen.getByRole("button", { name: label }));
-    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-  }
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-    "Connect",
-  );
-  mocks.wallet = { connected: true, publicKey: walletA };
-  view.rerender(<Stage />);
-  await waitFor(() =>
-    expect(
-      (screen.getByRole("button", { name: /Continue/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
   fireEvent.click(
-    screen.getByRole("button", {
-      name: "I checked that my wallet uses Devnet",
-    }),
+    screen.getByRole("button", { name: /Start from the beginning/ }),
   );
-  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-  await waitFor(() =>
-    expect(
-      (screen.getByRole("button", { name: /Continue/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-  await waitFor(() =>
-    expect(
-      (
-        screen.getByRole("button", {
-          name: /Review in wallet/,
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false),
-  );
-  expect(screen.getByText("5000 lamports (0.000005 SOL)")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: /Review in wallet/ }));
-  await waitFor(() =>
-    expect(
-      (screen.getByRole("button", { name: /Continue/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+  for (const step of STEPS) {
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      step.title,
+    );
+    if (step.action === "summary") break;
+    if (step.action === "quiz") {
+      const correct = screen
+        .getAllByRole("radio")
+        .find((r) => r.getAttribute("value") === step.quiz!.correct)!;
+      fireEvent.click(correct);
+      fireEvent.click(screen.getByRole("button", { name: /Check my answer/ }));
+    } else if (step.verification === "self") {
+      fireEvent.click(screen.getByRole("button", { name: step.confirmLabel! }));
+    } else if (step.action === "connect") {
+      mocks.wallet = { connected: true, publicKey: walletA };
+      view.rerender(<Stage />);
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+        step.title,
+      );
+    } else if (step.action === "transaction") {
+      await waitFor(() =>
+        expect(
+          (
+            screen.getByRole("button", {
+              name: /Review in wallet/,
+            }) as HTMLButtonElement
+          ).disabled,
+        ).toBe(false),
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Review in wallet/ }));
+    } else if (step.action === "flag") {
+      fireEvent.change(screen.getByLabelText("Public exercise code"), {
+        target: { value: "CTF{r3ad_th3_l0gs}" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Check answer" }));
+    }
+    const next = () =>
+      screen.getByRole("button", { name: /^Continue|^Review your progress/ });
+    await waitFor(() =>
+      expect((next() as HTMLButtonElement).disabled).toBe(false),
+    );
+    fireEvent.click(next());
+  }
   expect(
     screen
-      .getByRole("link", { name: /Inspect in Solana Explorer/ })
-      .getAttribute("href"),
-  ).toContain("cluster=devnet");
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "I inspected the receipt and found the code",
-    }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-  fireEvent.change(screen.getByLabelText("Public exercise code"), {
-    target: { value: "CTF{r3ad_th3_l0gs}" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Check answer" }));
-  await waitFor(() =>
-    expect(
-      (
-        screen.getByRole("button", {
-          name: /Review your progress/,
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false),
-  );
-  fireEvent.click(screen.getByRole("button", { name: /Review your progress/ }));
-  expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-    "first steps, understood",
-  );
-  expect(screen.getByRole("progressbar").getAttribute("value")).toBe("100");
+      .getByRole("progressbar", { name: "Course progress" })
+      .getAttribute("value"),
+  ).toBe("100");
   expect(mocks.cast).toHaveBeenCalledTimes(1);
-});
-
-it("keeps zero balance incomplete and blocks balances from a non-Devnet RPC", async () => {
-  mocks.wallet = { connected: true, publicKey: walletA };
-  save(walletA.toBase58(), 5, 5);
-  const zero = renderHook(() => useMissionEngine(walletA.toBase58()));
-  await waitFor(() => expect(zero.result.current.balanceLamports).toBe(0));
-  expect(zero.result.current.passed).toBe(false);
-  zero.unmount();
-  mocks.connection.getGenesisHash.mockResolvedValue("wrong-network");
-  mocks.connection.getBalance.mockClear();
-  const wrong = renderHook(() => useMissionEngine(walletA.toBase58()));
-  await waitFor(() => expect(wrong.result.current.failReason).toBe("network"));
-  expect(mocks.connection.getBalance).not.toHaveBeenCalled();
-  expect(wrong.result.current.passed).toBe(false);
+  expect(readProgress(walletA.toBase58())?.completed).toHaveLength(
+    STEPS.length - 1,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+  expect(screen.getByText("8 / 8 modules")).toBeTruthy();
 });

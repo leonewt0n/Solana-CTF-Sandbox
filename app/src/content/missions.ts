@@ -308,14 +308,14 @@ export const MISSIONS: Mission[] = [
         title: "Create your first practice wallet.",
         objective:
           "Your wallet is a signing tool. Start with the official app and a fresh practice account.",
-        why: "Your funds and transaction records exist on the blockchain. A wallet manages the keys you use to access accounts and authorize actions. This course uses Phantom for setup; the practice app also supports other Solana wallets.",
+        why: "Your funds and transaction records exist on the blockchain. A wallet manages the keys you use to access accounts and authorize actions. Choose Phantom or Solflare for this course. The setup examples describe Phantom; Solflare users can follow the equivalent prompts inside their wallet.",
         instructions: [
-          "Open the official Phantom download page using the button below.",
+          "Choose the official Phantom or Solflare download link below.",
           "Choose your browser extension or mobile app and check the publisher before installing.",
-          "Return to this page after installation. On desktop, refresh if the extension is not detected. On mobile, open this site in Phantom’s in-app browser.",
+          "Return to this page after installation. On desktop, refresh if the extension is not detected. On mobile, open this site in your chosen wallet’s in-app browser.",
         ],
         expected:
-          "Phantom is available on your device. Installing it does not buy crypto or move funds.",
+          "Phantom or Solflare is available on your device. Installing it does not buy crypto or move funds.",
         safety:
           "Create a fresh practice wallet for this course. You do not need to buy SOL or connect a wallet containing real funds.",
         terms: [
@@ -331,7 +331,7 @@ export const MISSIONS: Mission[] = [
           },
         ],
         troubleshooting:
-          "Already have a Solana wallet? You can continue and use it at the connection step. This course explains Phantom setup, but does not require uninstalling or replacing another wallet.",
+          "Already have a Solana wallet? You can continue and use it at the connection step. Phantom and Solflare are supported. The examples explain Phantom setup; follow your wallet’s own setup prompts without uninstalling or replacing an existing wallet.",
         action: "install",
         verification: "self",
         confirmLabel: "My wallet app is ready",
@@ -513,12 +513,12 @@ export const MISSIONS: Mission[] = [
           "Choose Solana Devnet in your wallet and understand why it matters.",
         why: "Devnet is a separate Solana network used for testing. Its test SOL has no real monetary value. The same public address can have different balances on Mainnet and Devnet.",
         instructions: [
-          "In Phantom, open Settings and find Developer Settings.",
-          "Enable Testnet Mode and choose Solana Devnet. Look for the testnet banner in your wallet.",
+          "Open your wallet’s Settings. In Phantom, find Developer Settings; in Solflare, find Network.",
+          "In Phantom, enable Testnet Mode and choose Solana Devnet. In Solflare, open Settings, find Network, and choose Devnet.",
           "Confirm below after checking your wallet. This app uses Devnet RPC, but cannot directly inspect the network selected in your wallet’s interface.",
         ],
         expected:
-          "Your wallet displays its testnet banner and Devnet balance. Your Mainnet funds have not moved.",
+          "Your wallet shows that Devnet is selected and displays its Devnet balance. Your Mainnet funds have not moved.",
         safety:
           "Do not purchase test SOL. If a wallet prompt shows Mainnet or unexpected asset movements during this course, reject it and check your settings.",
         terms: [
@@ -534,7 +534,7 @@ export const MISSIONS: Mission[] = [
           },
         ],
         troubleshooting:
-          "Menu names vary across wallet versions. Use the official testnet guide if needed. Other supported wallets have their own network controls.",
+          "Menu names vary across wallet versions. Use the official testnet guide if needed. In Solflare, look for Network in Settings and select Devnet.",
         action: "manual",
         verification: "self",
         confirmLabel: "I checked that my wallet uses Devnet",

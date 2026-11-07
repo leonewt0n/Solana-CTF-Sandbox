@@ -2840,3 +2840,12 @@ h1 {
   outline: 2px solid currentColor;
   outline-offset: 3px;
 }
+
+.wallet-choice {
+  margin: 16px 0;
+}
+.wallet-choice p {
+  margin-bottom: 12px;
+  font-size: 15px;
+  color: var(--muted);
+}

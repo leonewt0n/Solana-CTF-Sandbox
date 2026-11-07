@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { SolflareWalletName } from "@solana/wallet-adapter-solflare";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import type { MissionEngine } from "../engine/useMissionEngine";
 import { explorerTxUrl, PROGRAM_ID } from "../lib/constants";
@@ -58,22 +59,38 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
         <span className="check-label">{VERIFICATION[step.verification]}</span>
       </div>
       {step.action === "install" && (
-        <div className="install-resource">
-          <span className="resource-icon" aria-hidden>
-            ↗
-          </span>
-          <div>
-            <strong>Get Phantom</strong>
-            <p>Install from the official website for your device.</p>
-            <a
-              href="https://phantom.app/download"
-              target="_blank"
-              rel="noreferrer"
-            >
-              phantom.app/download ↗
-            </a>
-          </div>
-        </div>
+        <>
+          {[
+            { name: "Phantom", url: "https://phantom.app/download" },
+            { name: "Solflare", url: "https://www.solflare.com/download/" },
+          ].map(({ name, url }) => (
+            <div className="install-resource" key={name}>
+              <span className="resource-icon" aria-hidden>
+                ↗
+              </span>
+              <div>
+                <strong>Get {name}</strong>
+                <p>Install from the official website for your device.</p>
+                <a href={url} target="_blank" rel="noreferrer">
+                  Download {name} ↗
+                </a>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+      {step.id === "3.1" && (
+        <p className="panel-description">
+          Using Solflare? Follow its{" "}
+          <a
+            href="https://help.solflare.com/en/articles/6328814-differences-between-mainnet-devnet-and-testnet-and-how-to-switch-between-on-solflare"
+            target="_blank"
+            rel="noreferrer"
+          >
+            official network-switching guide
+          </a>
+          .
+        </p>
       )}
       {step.verification === "self" && (
         <div className="self-confirm">
@@ -97,6 +114,24 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
             Choose your practice wallet. Only its public address is shared with
             this app.
           </p>
+          {!wallet.connected && (
+            <div className="wallet-choice">
+              <p>Using Solflare? Select it here, then press Connect.</p>
+              <button
+                className="button button-secondary"
+                disabled={
+                  wallet.connecting ||
+                  wallet.disconnecting ||
+                  wallet.wallet?.adapter.name === SolflareWalletName
+                }
+                onClick={() => wallet.select(SolflareWalletName)}
+              >
+                {wallet.wallet?.adapter.name === SolflareWalletName
+                  ? "Solflare selected"
+                  : "Choose Solflare"}
+              </button>
+            </div>
+          )}
           <WalletMultiButton />
           {wallet.publicKey && (
             <Address

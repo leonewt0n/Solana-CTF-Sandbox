@@ -24,6 +24,8 @@ npm run build
 
 Optional `VITE_RPC_URL` and `VITE_PROGRAM_ID` override the Devnet RPC and teaching program address. Public frontend variables are visible to visitors; never place secrets in them. Balance and transaction checks verify the endpoint's Devnet genesis hash. Transaction preview also checks that the teaching program is executable and estimates the fee before enabling signing.
 
+Solflare is available in the wallet picker and through a dedicated choice in the connection lesson. Its adapter explicitly requests Devnet. The installation lesson links to the official Phantom and Solflare downloads; network guidance covers both wallets. Real Solflare extension/mobile signing still requires a manual check.
+
 ## Interface and teaching
 
 The dark neutral interface takes inspiration from Phantom’s actual wallet screens: rounded cards, grouped rows, pill controls, and restrained selection colors. Original 3D artwork appears as a small companion; technical diagrams are interactive SVG/HTML with selectable labels and text equivalents. Lesson text is 18px on desktop and 17px on mobile, with supporting text at least 14px. Module completion triggers a short celebration; reduced-motion settings disable confetti and traveling effects.

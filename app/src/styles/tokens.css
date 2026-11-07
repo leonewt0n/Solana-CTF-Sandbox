@@ -1,0 +1,15 @@
+:root {
+  --page: #101011;
+  --surface: #19191c;
+  --surface-raised: #222225;
+  --surface-hover: #29292d;
+  --ink: #f1f0f4;
+  --muted: #aaa9b1;
+  --line: #2c2c31;
+  --accent: #c3b6f4;
+  --accent-ink: #1e1831;
+  --accent-soft: #292532;
+  --success: #a2d5bd;
+  --font-body:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

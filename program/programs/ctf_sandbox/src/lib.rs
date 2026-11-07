@@ -9,7 +9,8 @@ pub mod ctf_sandbox {
     /// Deliberate teaching leak: emits the CTF flag into program logs
     /// so beginners can find it on a block explorer.
     pub fn trigger_mission(_ctx: Context<TriggerMission>) -> Result<()> {
-        msg!("CTF{{r3ad_th3_l0gs}}");
+        // Pass the flag as an arg so `{` / `}` are not format escapes.
+        msg!("{}", "CTF{r3ad_th3_l0gs}");
         Ok(())
     }
 }

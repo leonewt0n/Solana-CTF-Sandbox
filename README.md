@@ -1,7 +1,8 @@
-🚩 On-Chain CTF Sandbox: Solana Explorer 101
+# On-Chain CTF Sandbox: Solana Explorer 101
 
-Built for the "Best Beginner Hack" Track
+**Track:** Best Beginner Hack
 
+A tiny educational dApp that teaches beginners how to read Solana on-chain data. You send a Devnet transaction, open it in Solana Explorer, find a flag in **Program Instruction Logs**, and submit it in the UI.
 ## Current learning experience
 
 Solana Learn now offers an eight-module, 19-step beginner course, starting without a wallet: why Web3 exists, how blockchain records work, Solana and network tradeoffs, and common uses. It then guides wallet setup and Devnet practice, includes three safe scam scenarios, and finishes with explorer evidence and the public log-code exercise.
@@ -16,49 +17,74 @@ See [the frontend README](app/README.md) for commands, content sources, configur
 - **Program ID (Devnet):** `4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa`
 - **Explorer:** [Program on Solana Explorer (Devnet)](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet)
 
-Fund your Solana CLI wallet with Devnet SOL at the [Solana Faucet](https://faucet.solana.com/), then from `program/` run `anchor deploy --provider.cluster devnet`. Judges can use the live demo without building locally once the frontend is deployed.
+The program is intentionally chatty: it emits `CTF{...}` into the logs on purpose so you can practice using a block explorer.
 
-## Overview
+## Try it
 
-Learning how to build on Solana is exciting, but navigating a block explorer for the first time can be overwhelming. The On-Chain CTF (Capture The Flag) Sandbox is an interactive, beginner-friendly educational tool designed to teach new developers and crypto-curious users how to read on-chain data.
+| | |
+|---|---|
+| **Live demo** | _(coming soon — deploy URL goes here)_ |
+| **Program ID (Devnet)** | `4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa` |
+| **Explorer** | [Program on Solana Explorer (Devnet)](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet) |
 
-We deployed a simple, deliberately "misconfigured" smart contract to the Solana Devnet. Users interact with our web portal to trigger transactions, and then they must dive into the Solana Explorer logs to uncover a hidden "flag" emitted by the program.
+The program is already deployed on Devnet. For a local UI you only need the frontend (see below). Redeploy the program only if you change Rust code.
 
-## Features
+## How to play
 
+1. Switch your wallet to **Devnet** (Phantom / Solflare / Backpack).
+2. Get free Devnet SOL from the [Solana Faucet](https://faucet.solana.com/).
+3. Open the app → connect wallet → click **Trigger Mission Instruction**.
+4. Approve the transaction.
+5. Open the Explorer deep-link from the UI (keep `cluster=devnet`).
+6. Scroll to **Program Instruction Logs** and copy the `CTF{...}` string.
+7. Paste it into **Submit flag** on the web portal.
 - **Wallet Integration:** Connect Phantom, MetaMask (Solana), Backpack, or Solflare wallets.
 - **Interactive Missions:** Trigger devnet transactions directly from the UI.
 - **Guided Tutorials:** Step-by-step hints on how to open a transaction signature in a block explorer and read the program logs.
 - **Flag Verification:** A submission box to verify the hidden string (flag) found in the on-chain logs.
 
-## Tech Stack
+## Project layout
 
+```
+app/       React + Vite frontend (wallet, mission UI, flag check)
+program/   Anchor program on Devnet (emits the flag in logs)
+```
 - **Frontend:** React.js, TailwindCSS
 - **Blockchain Integration:** `@solana/web3.js`, `@solana/wallet-adapter`, `@metamask/connect-solana`
 - **Smart Contract (Program):** Rust, Anchor Framework
 - **Network:** Solana Devnet
 
-## Getting Started
+## Run the frontend (usual path)
 
-### Prerequisites
+Program is already on Devnet — no Rust/Anchor needed to try the app.
 
-Make sure you have the following installed:
+**Need:** Node.js 18+
 
+```bash
+git clone https://github.com/leonewt0n/Solana-CTF-Sandbox.git
+cd Solana-CTF-Sandbox/app
+npm install
+npm run dev
+```
 - Node.js (v24+)
 - Rust
 - Solana CLI
 - Anchor
 
-### Installation
+Open [http://localhost:3000](http://localhost:3000).
 
-Clone the repository:
+Frontend env (`app/.env`):
 
-```bash
-git clone https://github.com/leonewt0n/Solana-CTF-Sandbox.git
-cd Solana-CTF-Sandbox
+```env
+VITE_PROGRAM_ID=4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa
+VITE_RPC_URL=https://api.devnet.solana.com
 ```
 
-Build and Deploy the Anchor Program (Devnet):
+More frontend detail: [`app/README.md`](app/README.md).
+
+## Redeploy the program (optional)
+
+**Need:** Rust, Solana CLI, Anchor. Fund `~/.config/solana/id.json` via the [faucet](https://faucet.solana.com/).
 
 ```bash
 cd program
@@ -67,21 +93,21 @@ anchor keys sync
 anchor deploy --provider.cluster devnet
 ```
 
-Install Frontend Dependencies:
+If the Program ID changes, update `app/.env` (`VITE_PROGRAM_ID`) and the IDL under `app/src/idl/`.
 
-```bash
-cd ../app
-npm install
-```
+## Features
 
-Run the Development Server:
+- Wallet connect: Phantom, Backpack, Solflare
+- One mission: call `trigger_mission` on Devnet
+- Guided hints for Explorer + program logs
+- Client-side flag verify (SHA-256 hash — plaintext flag is not stored in the UI)
 
-```bash
-npm run dev
-```
+## Tech stack
 
-Open http://localhost:3000 to view the app in your browser.
-
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS
+- **Web3:** `@solana/web3.js`, `@solana/wallet-adapter`
+- **Program:** Rust + Anchor
+- **Network:** Solana Devnet
 ## How to Learn
 
 1. Follow the course instructions to set up a fresh practice wallet privately.
@@ -92,12 +118,12 @@ Open http://localhost:3000 to view the app in your browser.
 6. Inspect the saved transaction on the Devnet explorer, find its public exercise code in the program logs, and check your answer.
 7. Review the learning summary or revisit any completed lesson without repeating the transaction.
 
-## The Team (First-Time Hackers)
+## Team
 
-Team is **>50% first-time hackers / first Solana builders** (eligible for Best Beginner Hack).
+Eligible for Best Beginner Hack (**>50%** first-time hackers / first Solana builders).
 
-- [Diana] - Frontend & Web3 Integration
-- [Leo] - Anchor Program Development
-- [Anshul] - UI/UX & Documentation
+- **Diana** — Frontend & Web3 Integration
+- **Leo** — Anchor Program Development
+- **Anshul** — UI/UX & Documentation
 
-This project was built as our very first Solana hackathon submission!
+Built as our first Solana hackathon submission.

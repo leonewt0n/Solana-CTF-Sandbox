@@ -1,3 +1,4 @@
+import { SCAM_LAB_MISSION } from "./scams";
 // Lesson copy is reviewed against the linked primary sources. No market-share or speed ranking is implied.
 export type DiagramKind =
   | "records"
@@ -38,6 +39,7 @@ export type Step = {
   confirmLabel?: string;
   source?: { label: string; href: string };
   diagram?: DiagramKind;
+  scamScenario?: string;
   quiz?: { question: string; options: QuizOption[]; correct: string };
 };
 export type Mission = {
@@ -713,6 +715,7 @@ export const MISSIONS: Mission[] = [
         action: "quiz",
         verification: "understanding",
         diagram: "airdrop",
+        scamScenario: "scam.airdrop",
         quiz: {
           question:
             "The claim page asks for your recovery phrase. What do you do?",
@@ -757,6 +760,7 @@ export const MISSIONS: Mission[] = [
         action: "quiz",
         verification: "understanding",
         diagram: "support",
+        scamScenario: "scam.support",
         quiz: {
           question: "What is the first decisive red flag in this exchange?",
           options: [
@@ -800,6 +804,7 @@ export const MISSIONS: Mission[] = [
         action: "quiz",
         verification: "understanding",
         diagram: "approval",
+        scamScenario: "scam.approval",
         quiz: {
           question:
             "The page says “free badge”; the request sends your SOL. What is the safe decision?",
@@ -897,8 +902,9 @@ export const MISSIONS: Mission[] = [
       },
     ],
   },
+  SCAM_LAB_MISSION,
   {
-    id: 8,
+    id: 9,
     name: "Bring it together",
     description: "Review the skills you practiced",
     icon: "check",

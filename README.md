@@ -5,7 +5,7 @@
 A tiny educational dApp that teaches beginners how to read Solana on-chain data. You send a Devnet transaction, open it in Solana Explorer, find a flag in **Program Instruction Logs**, and submit it in the UI.
 ## Current learning experience
 
-Solana Learn now offers an eight-module, 19-step beginner course, starting without a wallet: why Web3 exists, how blockchain records work, Solana and network tradeoffs, and common uses. It then guides wallet setup and Devnet practice, includes three safe scam scenarios, and finishes with explorer evidence and the public log-code exercise.
+Solana Learn now offers a nine-module, 30-step beginner course, starting without a wallet: why Web3 exists, how blockchain records work, Solana and network tradeoffs, and common uses. It then guides wallet setup and Devnet practice, includes explorer evidence and a public log-code exercise, and adds 14 interactive scam scenarios across the course. A separate Scam practice tab lets anyone explore all scenarios without connecting a wallet.
 
 The dark neutral course interface uses larger text, compact original 3D accents, interactive 2D diagrams, learning checks with explanatory feedback, a searchable glossary, and reduced-motion-aware module celebrations. Progress is cached locally, with wallet-authenticated Cloudflare D1 sync and one-time browser-transfer codes for introductory lessons. Learner accounts support email-code login and later wallet linking; public email delivery requires a configured sender. No deposit, custody, recovery-phrase input, or real-wallet scam transaction is involved.
 

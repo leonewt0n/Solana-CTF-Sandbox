@@ -1,6 +1,6 @@
 # Solana Learn frontend
 
-A beginner learning platform with eight modules and 19 steps: Web3 motivations, blockchain records, network comparisons, common uses, wallet setup, connection, Devnet funding, transaction inspection, scam simulations, and explorer logs. Built with React, TypeScript, Vite, and Solana wallet adapters.
+A beginner learning platform with nine modules and 30 steps: Web3 motivations, blockchain records, network comparisons, common uses, wallet setup, connection, Devnet funding, transaction inspection, scam simulations, and explorer logs. Built with React, TypeScript, Vite, and Solana wallet adapters.
 
 ## Run locally
 
@@ -147,3 +147,17 @@ Local mode returns a `localCode` to the localhost-only development form and send
 `npm run test:accounts` uses port 8801 and disposable local D1 data. It tests anonymous transfer across browsers, receipt isolation, expiry and replay checks, email-only sessions, linked-wallet restoration, legacy-record preservation, cross-account isolation, logout, and email-code attempt limits. It never sends a real email or changes hosted data. The frontend tests also verify that local test codes cannot be exposed on a public HTTPS URL.
 
 Shared introductory progress is advanced when a linked wallet has completed more introductory lessons. Restarting one wallet's course does not erase another wallet's record or the learner's shared introductory record. To repeat the entire introductory course, sign out and restart the browser record, or add an explicit account-wide reset workflow rather than treating a wallet reset as deletion of every linked record.
+
+## Scam simulations
+
+**Scam practice** in the main navigation opens 14 fictional scenarios without a wallet or course prerequisites. The same simulations appear in the course: the original three retain their lesson IDs, and eleven new learning checks form the Scam practice lab after the original explorer exercises and before the final summary. This placement preserves prior completed lessons and receipts. A learner who previously reached the summary starts at the new lab; new checks are not automatically marked complete.
+
+Scenarios cover unsolicited airdrops, fake support, transfers disguised as free claims, misleading message signatures, blind signing, token delegates, token-account authority changes, poisoned recipients and QR/clipboard verification, phishing and login-code theft, fake installers and remote access, advance-fee investment/task pitches, impersonation tokens and rug/honeypot risks, recovery scams, and incident response. Message signing includes a comparison with an expected domain-bound login. Incident response compares recovery-phrase exposure with an unwanted token permission.
+
+The simulator has no wallet, RPC, network, account, clipboard, or installation dependencies. Every approve/reject action changes local explanatory feedback only. Domains and recipients are non-actionable fictional text; no seed phrase, private key, password, or login-code input is collected by a scenario. Mainnet labels and amounts occur only inside visibly fictional request previews; they do not change the application's Devnet connection. Official source links lead to wallet and Solana documentation.
+
+Free practice does not change course progress. Completing a course learning check uses the existing browser/D1 progress system. Storage version 3 and existing lesson IDs remain compatible; no D1 migration or progress reset is required. The anonymous browser-transfer boundary stays before wallet connection and does not import wallet-dependent achievements.
+
+Technical distinctions are deliberate: a message signature can authenticate a site or authorize an off-chain action; it is not automatically a blockchain transfer. A standard token delegate is limited to the specified token account/allowance. A token-account authority change is not the same as exposing a wallet recovery phrase. Disconnecting a website does not revoke on-chain permissions. No badge, simulation preview, or absence of an unverified warning is presented as a guarantee of safety.
+
+Sources are recorded per scenario in `src/content/scams.ts`, using Solana documentation, Phantom and Solflare support, and MetaMask's address-poisoning explanation. Scenarios and quiz copy are original training examples rather than replicas of wallet UI. Real browser visual QA remains a separate manual check.

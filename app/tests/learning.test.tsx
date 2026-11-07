@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PublicKey } from "@solana/web3.js";
 import { prepareMission } from "../src/lib/program";
 import { useMissionEngine } from "../src/engine/useMissionEngine";
+import { MISSIONS } from "../src/content/missions";
 import { Stage } from "../src/components/Stage";
 import { LearningVisual } from "../src/components/LearningVisual";
 import { Celebration } from "../src/components/Celebration";
@@ -350,6 +351,24 @@ describe("interactive explanations", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Back/ }));
     expect(screen.getByText("You’ve got it.")).toBeTruthy();
   });
+  it("opens scam practice before wallet connection without changing course progress", () => {
+    render(<Stage />);
+    const before = readProgress("anon");
+    fireEvent.click(screen.getByRole("button", { name: "Scam practice" }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Practice the pause before approval.",
+    );
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Choose a scenario" }),
+      { target: { value: "scam.blind" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review simulated request" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Approve simulation" }));
+    expect(mocks.cast).not.toHaveBeenCalled();
+    expect(readProgress("anon")).toEqual(before);
+  });
   it("opens a searchable glossary and a working progress page", () => {
     render(<Stage />);
     fireEvent.click(screen.getByRole("button", { name: "Glossary" }));
@@ -375,7 +394,7 @@ describe("interactive explanations", () => {
     expect(screen.getByText("Module complete. Nicely done.")).toBeTruthy();
   });
 });
-it("completes all 19 steps with simulated wallet/RPC, preserving the lesson on connection", async () => {
+it("completes the expanded course with simulated wallet/RPC, preserving the lesson on connection", async () => {
   mocks.connection.getBalance.mockResolvedValue(1000000);
   mocks.cast.mockResolvedValue({ ok: true, signature });
   mocks.flag.mockResolvedValue({ ok: true });
@@ -436,5 +455,7 @@ it("completes all 19 steps with simulated wallet/RPC, preserving the lesson on c
     STEPS.length - 1,
   );
   fireEvent.click(screen.getByRole("button", { name: "Learn" }));
-  expect(screen.getByText("8 / 8 modules")).toBeTruthy();
+  expect(
+    screen.getByText(`${MISSIONS.length} / ${MISSIONS.length} modules`),
+  ).toBeTruthy();
 });

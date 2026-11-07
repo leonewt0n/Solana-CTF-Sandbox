@@ -101,7 +101,7 @@ svg {
   align-items: center;
   padding: 0 34px;
   border-bottom: 1px solid var(--line);
-  gap: 65px;
+  gap: 28px;
   background: var(--page);
   position: relative;
   z-index: 20;
@@ -2917,4 +2917,186 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
+}
+
+.scam-simulator {
+  margin: 24px 0;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--surface, #202024);
+}
+.simulation-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: #29243a;
+  color: #e5d7ff;
+  font-size: 13px;
+}
+.simulation-banner span {
+  color: #d6d1df;
+}
+.simulation-invitation,
+.simulation-request {
+  padding: 22px;
+}
+.simulation-invitation h2 {
+  font-size: 24px;
+  margin: 10px 0;
+}
+.simulation-invitation p {
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 0 0 18px;
+}
+.simulation-request {
+  border-top: 1px solid var(--line);
+}
+.simulation-request-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.simulation-request-header span {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.simulation-fields {
+  margin: 20px 0;
+}
+.simulation-fields > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 1.4fr;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.simulation-fields dt {
+  color: var(--muted);
+  font-size: 15px;
+}
+.simulation-fields dd {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.simulation-fields code {
+  font-size: 14px;
+}
+.simulation-choices,
+.simulation-comparisons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.simulation-comparisons {
+  padding: 16px 22px 0;
+}
+.simulation-comparisons button {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.simulation-comparisons button[aria-pressed="true"] {
+  background: #373046;
+  border-color: #b29bd6;
+}
+.simulation-feedback {
+  padding: 18px;
+  margin: 18px 0;
+  border: 1px solid #9b7650;
+  border-radius: 14px;
+  background: #302a24;
+}
+.simulation-feedback.is-recommended {
+  border-color: #52745c;
+  background: #222e26;
+}
+.simulation-feedback p,
+.simulation-clues {
+  font-size: 16px;
+  line-height: 1.7;
+}
+.simulation-clues {
+  padding-left: 22px;
+}
+.simulation-footnote {
+  padding: 0 22px 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.scenario-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 26px 0;
+  font-size: 16px;
+}
+.scenario-picker select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #252429;
+  color: inherit;
+  font: inherit;
+}
+.scam-practice-page > p {
+  font-size: 17px;
+  line-height: 1.7;
+}
+@media (max-width: 600px) {
+  .simulation-invitation,
+  .simulation-request {
+    padding: 18px;
+  }
+  .simulation-fields > div {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .simulation-choices {
+    flex-direction: column;
+  }
+  .simulation-choices button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .site-header {
+    height: auto;
+    min-height: 70px;
+    padding: 14px 18px;
+    row-gap: 12px;
+  }
+  .header-actions {
+    order: 2;
+  }
+  .header-tabs {
+    position: static;
+    order: 3;
+    flex: 0 0 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .header-tabs button {
+    min-width: 0;
+    padding: 8px 6px;
+  }
+  .app-layout {
+    padding-top: 0;
+  }
 }

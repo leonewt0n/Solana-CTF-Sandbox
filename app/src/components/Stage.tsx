@@ -11,6 +11,8 @@ import { LearningVisual } from "./LearningVisual";
 import { Celebration } from "./Celebration";
 import { Glossary } from "./Glossary";
 import { Icon } from "./Icon";
+import { ScamSimulator } from "./ScamSimulator";
+import { ScamPractice } from "./ScamPractice";
 import { LearnerAccess } from "./LearnerAccess";
 import {
   LearnerAccountProvider,
@@ -18,7 +20,7 @@ import {
 } from "../context/LearnerAccount";
 import { useProgressSync } from "../engine/useProgressSync";
 
-type View = "overview" | "lesson" | "progress";
+type View = "overview" | "lesson" | "progress" | "scams";
 export function Stage() {
   return (
     <LearnerAccountProvider>
@@ -117,7 +119,9 @@ function CourseSession({
         </a>
         <nav className="header-tabs" aria-label="Main navigation">
           <button
-            aria-current={view !== "progress" ? "page" : undefined}
+            aria-current={
+              view === "overview" || view === "lesson" ? "page" : undefined
+            }
             disabled={engine.status === "checking"}
             onClick={() => setView("overview")}
           >
@@ -129,6 +133,13 @@ function CourseSession({
             onClick={() => setView("progress")}
           >
             My progress
+          </button>
+          <button
+            aria-current={view === "scams" ? "page" : undefined}
+            disabled={engine.status === "checking"}
+            onClick={() => setView("scams")}
+          >
+            Scam practice
           </button>
         </nav>
         <div className="header-actions">
@@ -369,6 +380,8 @@ function CourseSession({
               resume={resume}
               openModule={openModule}
             />
+          ) : view === "scams" ? (
+            <ScamPractice heading={heading} />
           ) : view === "progress" ? (
             <ProgressView
               engine={engine}
@@ -598,7 +611,11 @@ function Lesson({
             </h2>
             <p>{step.why}</p>
           </section>
-          {step.diagram && <LearningVisual kind={step.diagram} />}{" "}
+          {step.scamScenario ? (
+            <ScamSimulator key={step.id} scenarioId={step.scamScenario} />
+          ) : (
+            step.diagram && <LearningVisual kind={step.diagram} />
+          )}{" "}
           {step.explanation && (
             <section
               className="lesson-explanation"

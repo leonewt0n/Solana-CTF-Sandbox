@@ -1,172 +1,395 @@
-import { useWallet } from '@solana/wallet-adapter-react'
-import { useState } from 'react'
-import { explorerTxUrl } from '../lib/constants'
-import type { MissionEngine } from '../engine/useMissionEngine'
-import { CastSpellAction } from './actions/CastSpellAction'
-import { ConnectWalletAction } from './actions/ConnectWalletAction'
-import { FaucetAction } from './actions/FaucetAction'
-import { LinkAction } from './actions/LinkAction'
-import { ManualConfirmAction } from './actions/ManualConfirmAction'
-import { SubmitFlagAction } from './actions/SubmitFlagAction'
-import { FinalBadge } from './FinalBadge'
+import { useEffect, useState } from "react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import type { MissionEngine } from "../engine/useMissionEngine";
+import { explorerTxUrl, PROGRAM_ID } from "../lib/constants";
+import { prepareMission } from "../lib/program";
 
-type Props = {
-  engine: MissionEngine
-}
-
-export function ActionZone({ engine }: Props) {
-  const wallet = useWallet()
-  const {
-    step,
-    status,
-    failReason,
-    signature,
-    balanceLamports,
-    canGoNext,
-    confirmManual,
-    runCast,
-    runFlag,
-    goNext,
-    playAgain,
-  } = engine
-
-  const hint =
-    status === 'failed' && failReason
-      ? step.onFail?.[failReason]?.line
-      : null
-
+const ERRORS: Record<string, string> = {
+  rejected:
+    "Request declined. Nothing was approved in that request. Review the details whenever you feel ready to try again.",
+  insufficient:
+    "Your Devnet SOL balance is too low for the fee. Revisit Receive test SOL, then return here.",
+  network:
+    "The configured RPC is not Solana Devnet. No transaction was requested. Check the app’s RPC configuration and your wallet network.",
+  program:
+    "The teaching program is not available on the configured Devnet endpoint. Try later or ask the project maintainer to check deployment.",
+  execution:
+    "The transaction was submitted but execution failed. Inspect the receipt below; this lesson has not been marked complete.",
+  expired:
+    "The transaction expired. If a signature is shown, inspect its outcome before submitting a new request.",
+  rpc: "The network service is unavailable or rate-limited. Wait and retry. If there is a receipt below, inspect it before sending again.",
+  "balance-rpc":
+    "Could not read your Devnet balance. We will retry automatically. Check your connection; this does not mean your balance is zero.",
+  invalid:
+    "That code does not match. Check the full CTF{...} string, including capitalization and braces, in the program logs.",
+  unknown:
+    "Could not complete this check. If a receipt is shown, inspect it before trying another transaction.",
+};
+const VERIFICATION = {
+  self: "Self-confirmed",
+  wallet: "Wallet check",
+  rpc: "Devnet RPC check",
+  answer: "Local answer check",
+  read: "Learning summary",
+};
+export function ActionZone({ engine }: { engine: MissionEngine }) {
+  const { step, status, passed, failReason, signature } = engine;
+  const wallet = useWallet();
+  const [answer, setAnswer] = useState("");
   return (
-    <section className="action-zone flex w-full flex-col gap-4 rounded-[var(--radius-lg)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
-      <div>
-        <p className="font-[family-name:var(--font-display)] text-xs font-semibold uppercase tracking-wider text-[var(--pink-400)]">
-          Step {step.id}
-        </p>
-        <h2 className="mt-1 font-[family-name:var(--font-display)] text-2xl font-semibold text-[var(--ink-900)]">
-          {step.title}
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--ink-700)] sm:text-base">
-          {step.body}
-        </p>
+    <section className="practice-panel" aria-label="Hands-on practice">
+      <div className="practice-heading">
+        <span className="section-label">
+          {step.action === "summary"
+            ? "YOUR LEARNING RECORD"
+            : "PUT IT INTO PRACTICE"}
+        </span>
+        <span className="check-label">{VERIFICATION[step.verification]}</span>
       </div>
-
-      <div className="min-h-[4.5rem]">
-        {step.action === 'none' && step.id === '4.3' && signature && (
-          <SignatureBlock signature={signature} />
-        )}
-
-        {step.action === 'manual' && (
-          <ManualConfirmAction
-            label={step.manualLabel ?? 'I did it'}
-            disabled={status === 'passed'}
-            onConfirm={confirmManual}
-          />
-        )}
-
-        {step.action === 'link' && step.check === 'walletInstalled' && (
-          <LinkAction
-            href={step.href ?? 'https://phantom.app/download'}
-            label="Download Phantom"
-            hint="After installing, refresh this page so I can see your wand."
-          />
-        )}
-
-        {step.action === 'link' && step.id === '5.1' && (
-          <div className="flex flex-col gap-3">
-            <LinkAction
-              href={
-                signature
-                  ? explorerTxUrl(signature)
-                  : 'https://explorer.solana.com/?cluster=devnet'
-              }
-              label="Open Solana Explorer"
-              hint="Keep cluster=devnet. Scroll to Program Instruction Logs."
-            />
-            <ManualConfirmAction
-              label={step.manualLabel ?? 'I found the flag'}
-              disabled={status === 'passed'}
-              onConfirm={confirmManual}
-            />
+      {step.action === "install" && (
+        <div className="install-resource">
+          <span className="resource-icon" aria-hidden>
+            ↗
+          </span>
+          <div>
+            <strong>Get Phantom</strong>
+            <p>Install from the official website for your device.</p>
+            <a
+              href="https://phantom.app/download"
+              target="_blank"
+              rel="noreferrer"
+            >
+              phantom.app/download ↗
+            </a>
           </div>
-        )}
-
-        {step.action === 'connect' && <ConnectWalletAction />}
-
-        {step.action === 'faucet' && (
-          <FaucetAction
-            faucetUrl={step.href ?? 'https://faucet.solana.com/'}
-            balanceLamports={balanceLamports}
-          />
-        )}
-
-        {step.action === 'cast' && (
-          <CastSpellAction
-            loading={status === 'checking'}
-            disabled={!wallet.connected}
-            onCast={() => {
-              void runCast()
-            }}
-          />
-        )}
-
-        {step.action === 'flag' && (
-          <SubmitFlagAction
-            checking={status === 'checking'}
-            onSubmit={(v) => {
-              void runFlag(v)
-            }}
-          />
-        )}
-
-        {step.action === 'finale' && <FinalBadge onPlayAgain={playAgain} />}
-      </div>
-
-      {hint && (
-        <p className="rounded-[var(--radius-md)] bg-[var(--pink-100)] px-3 py-2 text-sm text-[var(--ink-900)]">
-          {hint}
-        </p>
+        </div>
       )}
-
-      {step.action !== 'finale' && (
-        <div className="mt-auto flex justify-end pt-2">
+      {step.verification === "self" && (
+        <div className="self-confirm">
+          <p>
+            {step.action === "explorer"
+              ? "This is your acknowledgment of inspecting the receipt."
+              : "Complete this step in your wallet, then confirm here. This app cannot inspect your setup or backup."}
+          </p>
           <button
-            type="button"
-            className="btn-next"
-            disabled={!canGoNext}
-            onClick={goNext}
+            className="button button-primary"
+            disabled={passed || (step.action === "explorer" && !signature)}
+            onClick={engine.confirmManual}
           >
-            Next ▸
+            {passed ? "✓ Confirmed" : step.confirmLabel}
           </button>
         </div>
       )}
-    </section>
-  )
-}
-
-function SignatureBlock({ signature }: { signature: string }) {
-  const [copied, setCopied] = useState(false)
-
-  async function copy() {
-    await navigator.clipboard.writeText(signature)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1500)
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="break-all font-mono text-xs text-[var(--ink-900)]">{signature}</p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn-secondary" onClick={copy}>
-          {copied ? 'Copied!' : 'Copy signature'}
-        </button>
-        <a
-          href={explorerTxUrl(signature)}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-secondary inline-flex items-center no-underline"
+      {step.action === "connect" && (
+        <>
+          <p className="panel-description">
+            Choose your practice wallet. Only its public address is shared with
+            this app.
+          </p>
+          <WalletMultiButton />
+          {wallet.publicKey && (
+            <Address
+              value={wallet.publicKey.toBase58()}
+              label="Connected public address"
+            />
+          )}
+        </>
+      )}
+      {step.action === "faucet" && (
+        <>
+          {wallet.publicKey ? (
+            <Address
+              value={wallet.publicKey.toBase58()}
+              label="Your public Solana address"
+            />
+          ) : (
+            <>
+              <p>Reconnect your practice wallet to check its balance.</p>
+              <WalletMultiButton />
+            </>
+          )}
+          <div className="balance-row">
+            <div>
+              <span className="field-label">DEVNET BALANCE</span>
+              <strong>
+                {engine.balanceLamports === null
+                  ? "Checking…"
+                  : `${(engine.balanceLamports / 1_000_000_000).toLocaleString("en-US", { maximumFractionDigits: 9 })} SOL`}
+              </strong>
+            </div>
+            <a
+              className="button button-primary"
+              href="https://faucet.solana.com/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open faucet ↗
+            </a>
+          </div>
+          <p className="panel-caption">
+            Free test funds · Balance checked every 4 seconds
+          </p>
+        </>
+      )}
+      {step.action === "transaction" && (
+        <>
+          <TransactionPreview
+            enabled={!passed}
+            onSubmit={engine.runCast}
+            busy={status === "checking"}
+          />
+          {!wallet.connected && <WalletMultiButton />}
+        </>
+      )}
+      {(step.action === "explorer" || step.action === "transaction") &&
+        signature && <Receipt signature={signature} />}
+      {step.action === "flag" && (
+        <form
+          className="flag-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void engine.runFlag(answer);
+          }}
         >
-          Open in Explorer
-        </a>
+          <label htmlFor="exercise-code">Public exercise code</label>
+          <p className="panel-caption">
+            Only the CTF code from the logs belongs here.
+          </p>
+          <div className="input-row">
+            <input
+              id="exercise-code"
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              placeholder="CTF{...}"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={passed || status === "checking"}
+            />
+            <button
+              className="button button-primary"
+              disabled={!answer.trim() || passed || status === "checking"}
+            >
+              {status === "checking"
+                ? "Checking…"
+                : passed
+                  ? "✓ Checked"
+                  : "Check answer"}
+            </button>
+          </div>
+          {signature && (
+            <a
+              className="inline-link"
+              href={explorerTxUrl(signature)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Reopen your transaction ↗
+            </a>
+          )}
+        </form>
+      )}
+      {step.action === "summary" && (
+        <>
+          <h2>You’ve completed the walkthrough.</h2>
+          <p className="panel-description">
+            Your progress is saved in this browser for your connected account.
+            You can review any lesson from the outline.
+          </p>
+          <ul className="summary-list">
+            <li>
+              Wallet setup and recovery backup <span>Self-confirmed</span>
+            </li>
+            <li>
+              Wallet connection <span>Wallet checked</span>
+            </li>
+            <li>
+              Devnet selection <span>Self-confirmed</span>
+            </li>
+            <li>
+              Positive balance and program call <span>RPC checked</span>
+            </li>
+            <li>
+              Explorer inspection and exercise code{" "}
+              <span>Self + local check</span>
+            </li>
+          </ul>
+          {signature && <Receipt signature={signature} />}
+        </>
+      )}
+      {failReason && (
+        <p
+          className={`feedback ${failReason === "rejected" ? "notice" : "warning"}`}
+          role="alert"
+        >
+          {ERRORS[failReason] ?? ERRORS.unknown}
+        </p>
+      )}
+      {passed && step.action !== "summary" && (
+        <p className="feedback success" role="status">
+          ✓{" "}
+          {step.verification === "self"
+            ? "You confirmed this step."
+            : step.verification === "answer"
+              ? "Exercise code matched."
+              : "Check complete."}{" "}
+          You can continue or review the explanation.
+        </p>
+      )}
+    </section>
+  );
+}
+function Address({ value, label }: { value: string; label: string }) {
+  const [message, setMessage] = useState("Copy");
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage("Copied");
+    } catch {
+      setMessage("Select and copy manually");
+    }
+  }
+  return (
+    <div className="address-box">
+      <span className="field-label">{label}</span>
+      <div>
+        <code>{value}</code>
+        <button
+          className="copy-button"
+          onClick={() => {
+            void copy();
+          }}
+          type="button"
+        >
+          {message}
+        </button>
       </div>
     </div>
-  )
+  );
+}
+function Receipt({ signature }: { signature: string }) {
+  return (
+    <div className="receipt">
+      <span className="field-label">TRANSACTION RECEIPT · DEVNET</span>
+      <Address value={signature} label="Transaction signature" />
+      <a
+        className="inline-link"
+        href={explorerTxUrl(signature)}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Inspect in Solana Explorer ↗
+      </a>
+    </div>
+  );
+}
+function TransactionPreview({
+  enabled,
+  busy,
+  onSubmit,
+}: {
+  enabled: boolean;
+  busy: boolean;
+  onSubmit: () => Promise<void>;
+}) {
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
+  const [preview, setPreview] = useState<{
+    fee: number | null;
+    error: string | null;
+  }>({ fee: null, error: null });
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!publicKey || !enabled) return;
+    let cancelled = false;
+    void prepareMission(connection, publicKey)
+      .then((result) => {
+        if (!cancelled) setPreview({ fee: result.feeLamports, error: null });
+      })
+      .catch(() => {
+        if (!cancelled)
+          setPreview({
+            fee: null,
+            error:
+              "Could not prepare a Devnet preview. The RPC or teaching program may be unavailable. No signing request was made.",
+          });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connection, publicKey, enabled, retry]);
+  return (
+    <div className="transaction-preview">
+      <h3>Before your wallet opens</h3>
+      <dl>
+        <div>
+          <dt>Network</dt>
+          <dd>Solana Devnet</dd>
+        </div>
+        <div>
+          <dt>Action</dt>
+          <dd>Call the teaching program to write a public log</dd>
+        </div>
+        <div>
+          <dt>Asset transfer</dt>
+          <dd>No SOL transfer instruction</dd>
+        </div>
+        <div>
+          <dt>Estimated network fee</dt>
+          <dd>
+            {preview.fee === null
+              ? enabled
+                ? "Unavailable until preview loads"
+                : "See your receipt"
+              : `${preview.fee} lamports (${preview.fee / 1_000_000_000} SOL)`}
+          </dd>
+        </div>
+        <div>
+          <dt>Program address</dt>
+          <dd>
+            <code>{PROGRAM_ID.toBase58()}</code>
+          </dd>
+        </div>
+      </dl>
+      <p className="panel-caption">
+        The fee is refreshed before sending and may differ. Read the wallet’s
+        final details. The fee payer is your connected wallet.
+      </p>
+      {preview.error && (
+        <div className="feedback warning" role="alert">
+          {preview.error}{" "}
+          <button
+            className="text-button"
+            disabled={busy}
+            onClick={() => {
+              setPreview({ fee: null, error: null });
+              setRetry((n) => n + 1);
+            }}
+          >
+            Retry preview
+          </button>
+        </div>
+      )}
+      <button
+        className="button button-primary"
+        disabled={
+          !publicKey ||
+          busy ||
+          !enabled ||
+          preview.fee === null ||
+          !!preview.error
+        }
+        onClick={() => {
+          void onSubmit();
+        }}
+      >
+        {busy
+          ? "Waiting for wallet / network…"
+          : !enabled
+            ? "✓ Transaction completed"
+            : "Review in wallet"}{" "}
+        <span aria-hidden>↗</span>
+      </button>
+    </div>
+  );
 }

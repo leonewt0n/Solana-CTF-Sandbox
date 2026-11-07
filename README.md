@@ -2,6 +2,12 @@
 
 Built for the "Best Beginner Hack" Track
 
+## Current learning experience
+
+The frontend now presents a guided Solana learning walkthrough: create and back up a practice wallet, connect it, choose Devnet, receive free test SOL, inspect and sign a program call, and read its receipt and public exercise code. Essential instructions are visible; terminology and troubleshooting expand on demand. Progress is saved locally per account. Self-confirmed setup steps are labelled separately from wallet, RPC, and local answer checks.
+
+See [the frontend README](app/README.md) for current commands, configuration, and verification limits. No real-money deposit, custody, or recovery-phrase input is involved. The live demo placeholder below is not a deployment claim.
+
 ## Try it
 
 - **Live demo:** _(coming soon — deploy URL goes here)_
@@ -36,7 +42,7 @@ We deployed a simple, deliberately "misconfigured" smart contract to the Solana 
 
 Make sure you have the following installed:
 
-- Node.js (v16+)
+- Node.js (v24+)
 - Rust
 - Solana CLI
 - Anchor
@@ -74,15 +80,15 @@ npm run dev
 
 Open http://localhost:3000 to view the app in your browser.
 
-## How to Play
+## How to Learn
 
-1. Switch your Solana wallet to Devnet and ensure you have some devnet SOL (use the [Solana Faucet](https://faucet.solana.com/)).
-2. Click the **Trigger Mission Instruction** button in the web UI.
-3. Approve the transaction in your wallet.
-4. Copy the resulting Transaction Signature (or use the deep-link from the UI).
-5. Go to [Solana Explorer](https://explorer.solana.com/?cluster=devnet) and paste the signature (keep `cluster=devnet`).
-6. Scroll down to the **Program Instruction Logs** and find the hidden flag (it looks like `CTF{...}`).
-7. Submit the flag back on the web portal to win!
+1. Follow the course instructions to set up a fresh practice wallet privately.
+2. Connect the wallet and switch its interface to Solana Devnet.
+3. Request free test SOL using your public address at the official faucet.
+4. Review the teaching program, action, and estimated fee before opening your wallet.
+5. Approve only if the details match, then wait for successful transaction execution.
+6. Inspect the saved transaction on the Devnet explorer, find its public exercise code in the program logs, and check your answer.
+7. Review the learning summary or revisit any completed lesson without repeating the transaction.
 
 ## The Team (First-Time Hackers)
 

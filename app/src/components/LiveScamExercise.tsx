@@ -24,7 +24,7 @@ import {
 } from "../lib/liveScam";
 import { Icon } from "./Icon";
 
-export function LiveScamExercise({
+function MessageExercise({
   scenarioId,
   onBusy,
 }: {
@@ -481,4 +481,14 @@ function isDeclined(error: unknown) {
         typeof error.message === "string" &&
         /reject|declin|cancel/i.test(error.message)))
   );
+}
+
+/** Only the disclosed training message remains launchable. Transfer receipts are recovered separately. */
+export function LiveScamExercise(props: {
+  scenarioId: string;
+  onBusy: (busy: boolean) => void;
+}) {
+  return LIVE_SCAMS[props.scenarioId]?.kind === "message" ? (
+    <MessageExercise {...props} />
+  ) : null;
 }

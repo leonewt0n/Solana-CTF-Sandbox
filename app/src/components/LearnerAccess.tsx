@@ -196,7 +196,7 @@ export function LearnerAccess({
               onClick={() =>
                 void run(async () => {
                   const result = await accountApi("transfer/create", {
-                    version: 3,
+                    version: 4,
                     progress,
                   });
                   setTransfer(result.code);
@@ -233,10 +233,9 @@ export function LearnerAccess({
                   const result = await accountApi("transfer/redeem", {
                     code: incoming,
                   });
-                  const portable =
-                    result.version === 3
-                      ? normalizeProgress(result.progress)
-                      : null;
+                  const portable = [3, 4].includes(result.version)
+                    ? normalizeProgress(result.progress)
+                    : null;
                   if (!portable)
                     throw new Error("This transfer cannot be restored");
                   restore(mergeIntroductoryProgress(progress, portable));

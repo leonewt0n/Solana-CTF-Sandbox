@@ -1,3 +1,4 @@
+import { inspectionTask } from "../src/content/scams";
 import {
   act,
   cleanup,
@@ -52,7 +53,7 @@ it("explains the platform on arrival and exposes useful demo shortcuts", () => {
       name: "From understanding an idea to checking what you approve.",
     }),
   ).toBeTruthy();
-  expect(screen.getByText("9 open modules")).toBeTruthy();
+  expect(screen.getByText(`${MISSIONS.length} open modules`)).toBeTruthy();
   fireEvent.click(
     screen.getByRole("button", { name: "Try a scam simulation" }),
   );
@@ -92,7 +93,9 @@ it("lets a reviewer click any lesson inside a later module", () => {
   fireEvent.click(
     screen.getByRole("button", { name: /MODULE.*Scam practice lab/ }),
   );
-  for (const scenario of [...EXTRA_SCAM_SCENARIOS].reverse()) {
+  for (const scenario of [...EXTRA_SCAM_SCENARIOS]
+    .filter((s) => !["scam.delegate", "scam.authority"].includes(s.id))
+    .reverse()) {
     const button = screen
       .getAllByRole("button")
       .find((item) => item.textContent?.includes(scenario.title))!;
@@ -108,7 +111,14 @@ it("saves an out-of-order quiz and restores its location after remount", () => {
   const index = STEPS.findIndex((step) => step.id === "scam.delegate");
   const first = renderHook(() => useMissionEngine("anon"));
   act(() => first.result.current.navigate(index));
-  act(() => first.result.current.checkAnswer(STEPS[index].quiz!.correct));
+  act(() =>
+    first.result.current.assessScenario({
+      variant: "request",
+      inspection: inspectionTask("scam.delegate", "request")!.answer,
+      decision: "stop",
+      evidence: inspectionTask("scam.delegate", "request")!.answer,
+    }),
+  );
   expect(first.result.current.passed).toBe(true);
   expect(first.result.current.completed).toEqual(["scam.delegate"]);
   expect(first.result.current.stepIndex).toBe(index);
@@ -143,5 +153,5 @@ it("preserves independent introductory checks when merging a browser transfer", 
       stepIndex: 22,
       completed: ["scam.delegate", STEPS[1].id],
     }),
-  ).toMatchObject({ stepIndex: 22, completed: [STEPS[1].id, "scam.delegate"] });
+  ).toMatchObject({ stepIndex: 0, completed: [STEPS[1].id] });
 });

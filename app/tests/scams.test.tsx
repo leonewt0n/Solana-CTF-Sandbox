@@ -1,156 +1,118 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SCAM_SCENARIOS, EXTRA_SCAM_SCENARIOS } from "../src/content/scams";
+  SCAM_SCENARIOS,
+  ALL_SCENARIOS,
+  FINAL_SCENARIOS,
+  inspectionTask,
+  validAssessment,
+} from "../src/content/scams";
 import { ScamSimulator } from "../src/components/ScamSimulator";
-import { ScamPractice } from "../src/components/ScamPractice";
-import {
-  STEPS,
-  STORAGE_PREFIX,
-  normalizeProgress,
-} from "../src/engine/progress";
-const wallet = vi.hoisted(() => ({
-  useWallet: vi.fn(() => {
-    throw new Error("A simulation must never access a wallet");
-  }),
-}));
-vi.mock("@solana/wallet-adapter-react", () => ({
-  useWallet: wallet.useWallet,
-}));
-beforeEach(() => {
-  localStorage.clear();
-  vi.clearAllMocks();
-  vi.stubGlobal("fetch", vi.fn());
-  vi.spyOn(window, "open").mockImplementation(() => null);
-});
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-  vi.restoreAllMocks();
-});
-
-describe.each(SCAM_SCENARIOS)("$id training actions", (scenario) => {
-  it("explains both choices without signing, sending, navigating, or collecting secrets", () => {
-    const { container } = render(<ScamSimulator scenarioId={scenario.id} />);
-    expect(screen.getByText("TRAINING SIMULATION")).toBeTruthy();
+afterEach(cleanup);
+describe.each(ALL_SCENARIOS)("$id evidence assessment", (scenario) => {
+  it("withholds clues and requires inspection, decision and evidence", () => {
+    const done = vi.fn();
+    render(<ScamSimulator scenarioId={scenario.id} onAssessment={done} />);
+    for (const clue of scenario.request.clues)
+      expect(screen.queryByText(clue)).toBeNull();
+    expect(screen.queryByText(scenario.takeaway)).toBeNull();
     fireEvent.click(
       screen.getByRole("button", { name: "Review simulated request" }),
     );
-    expect(screen.getAllByText(scenario.request.origin).length).toBeGreaterThan(
-      0,
+    expect(done).not.toHaveBeenCalled();
+    const buttons = screen
+      .getByRole("group", { name: "Choose a simulated response" })
+      .querySelectorAll("button");
+    expect(new Set([...buttons].map((b) => b.className)).size).toBe(1);
+    const task = inspectionTask(scenario.id, "request")!;
+    fireEvent.change(screen.getByLabelText("Inspection answer"), {
+      target: { value: task.answer },
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name:
+          scenario.request.recommended === "stop"
+            ? "Reject"
+            : scenario.request.recommended === "proceed"
+              ? "Proceed"
+              : "Investigate further",
+        exact: true,
+      }),
     );
-    for (const choice of scenario.request.choices) {
-      fireEvent.click(
-        screen.getByRole("button", { name: choice.label, exact: true }),
-      );
-      expect(
-        within(screen.getByRole("status")).getByText(choice.feedback),
-      ).toBeTruthy();
-    }
-    fireEvent.click(screen.getByRole("button", { name: "Show the clues" }));
-    for (const clue of scenario.request.clues)
-      expect(screen.getByText(clue)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Reset simulation" }));
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(
-      container.querySelector("input, textarea, a, iframe, form"),
-    ).toBeNull();
-    expect(fetch).not.toHaveBeenCalled();
-    expect(wallet.useWallet).not.toHaveBeenCalled();
-    expect(window.open).not.toHaveBeenCalled();
+    expect(done.mock.calls.some(([value]) => value !== null)).toBe(false);
+    fireEvent.change(screen.getByLabelText("Supporting evidence"), {
+      target: { value: task.answer },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Check decision and evidence" }),
+    );
+    expect(done).toHaveBeenLastCalledWith({
+      variant: "request",
+      inspection: task.answer,
+      decision: scenario.request.recommended,
+      evidence: task.answer,
+    });
+    expect(screen.getByRole("status").textContent).toContain(
+      "Decision supported",
+    );
   });
 });
-it("compares a suspicious message with an expected login, while allowing either to be declined", () => {
-  render(<ScamSimulator scenarioId="scam.message" />);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Review simulated request" }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Expected login comparison" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Approve simulation" }));
-  expect(screen.getByRole("status").textContent).toContain(
-    "authenticate a website session",
-  );
-  expect(screen.getByRole("status").textContent).toContain(
-    "would not itself transfer SOL",
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Reject simulated request" }),
-  );
-  expect(screen.getByRole("status").textContent).toContain(
-    "Declining is always acceptable",
-  );
-  expect(fetch).not.toHaveBeenCalled();
-});
-it("distinguishes an unwanted token permission from recovery-phrase exposure", () => {
-  render(<ScamSimulator scenarioId="scam.response" />);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Review simulated request" }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Token permission comparison" }),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Reject simulated request" }),
-  );
-  expect(screen.getByRole("status").textContent).toContain(
-    "does not revoke the token-account delegate",
-  );
-  expect(fetch).not.toHaveBeenCalled();
-});
-it("offers all scenarios without changing a learner's saved course position", () => {
-  const saved = JSON.stringify({
-    stepIndex: 1,
-    completed: [STEPS[0].id],
-    signature: null,
-  });
-  localStorage.setItem(STORAGE_PREFIX + "anon", saved);
-  render(<ScamPractice heading={{ current: null }} />);
-  const picker = screen.getByRole("combobox", { name: "Choose a scenario" });
-  expect(within(picker).getAllByRole("option")).toHaveLength(14);
-  fireEvent.change(picker, { target: { value: "scam.delegate" } });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Review simulated request" }),
-  );
-  expect(screen.getByText("Approve delegate")).toBeTruthy();
-  expect(localStorage.getItem(STORAGE_PREFIX + "anon")).toBe(saved);
-  expect(wallet.useWallet).not.toHaveBeenCalled();
-});
-it("preserves the previous course completion and receipt while exposing the new lab", () => {
-  const newIds = new Set(EXTRA_SCAM_SCENARIOS.map((s) => s.id));
-  const previous = STEPS.filter((step) => !newIds.has(step.id));
-  expect(previous).toHaveLength(19);
-  expect(STEPS).toHaveLength(30);
-  const completed = previous.slice(0, -1).map((step) => step.id);
-  const saved = {
-    stepIndex: previous.length - 1,
-    completed,
-    signature: "5".repeat(88),
-  };
-  const restored = normalizeProgress(saved)!;
-  expect(restored).toEqual(saved);
-  expect(STEPS[restored.stepIndex].id).toBe(EXTRA_SCAM_SCENARIOS[0].id);
-  expect(restored.completed).not.toContain(EXTRA_SCAM_SCENARIOS[0].id);
-  expect(restored.signature).toBe(saved.signature);
-});
-it("has unique, referenced scenarios and a valid learning check for every new lesson", () => {
-  expect(new Set(SCAM_SCENARIOS.map((s) => s.id)).size).toBe(14);
-  for (const scenario of SCAM_SCENARIOS) {
-    const lesson = STEPS.find((step) => step.scamScenario === scenario.id)!;
-    expect(lesson).toBeTruthy();
-    expect(lesson.id).toBe(scenario.id);
+it.each(SCAM_SCENARIOS)(
+  "$id includes a legitimate comparison and clears unfinished assessment state",
+  (scenario) => {
+    expect(scenario.comparison).toBeTruthy();
+    const done = vi.fn();
+    render(<ScamSimulator scenarioId={scenario.id} onAssessment={done} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review simulated request" }),
+    );
+    fireEvent.change(screen.getByLabelText("Inspection answer"), {
+      target: { value: "unfinished" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Request B" }));
+    expect(screen.queryByLabelText("Inspection answer")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review simulated request" }),
+    );
     expect(
-      scenario.request.choices.some(
-        (c) => c.id === scenario.request.recommended,
-      ),
+      (screen.getByLabelText("Inspection answer") as HTMLInputElement).value,
+    ).toBe("");
+    expect(screen.queryByLabelText("Supporting evidence")).toBeNull();
+    expect(done).toHaveBeenLastCalledWith(null);
+    const task = inspectionTask(scenario.id, "comparison")!;
+    expect(
+      validAssessment(scenario.id, {
+        variant: "comparison",
+        inspection: task.answer,
+        decision: "proceed",
+        evidence: task.answer,
+      }),
     ).toBe(true);
-    expect(scenario.correct).toBeGreaterThanOrEqual(0);
-    expect(scenario.correct).toBeLessThan(scenario.answers.length);
-  }
+  },
+);
+it("keeps final assessments unseen in practice and tests proceed, reject and investigate", () => {
+  expect(FINAL_SCENARIOS.map((s) => s.request.recommended)).toEqual([
+    "proceed",
+    "stop",
+    "investigate",
+  ]);
+  expect(SCAM_SCENARIOS.some((s) => s.id.startsWith("final."))).toBe(false);
+});
+
+it("practice withholds takeaways and clears responses when switching scenarios", async () => {
+  const { ScamPractice } = await import("../src/components/ScamPractice");
+  render(<ScamPractice heading={{ current: null }} />);
+  expect(screen.queryByText(SCAM_SCENARIOS[0].takeaway)).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Review simulated request" }),
+  );
+  fireEvent.change(screen.getByLabelText("Inspection answer"), {
+    target: { value: "unfinished" },
+  });
+  fireEvent.change(screen.getByLabelText("Choose a scenario"), {
+    target: { value: SCAM_SCENARIOS[1].id },
+  });
+  expect(screen.queryByLabelText("Inspection answer")).toBeNull();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByText(SCAM_SCENARIOS[1].takeaway)).toBeNull();
 });

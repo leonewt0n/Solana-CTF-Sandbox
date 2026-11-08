@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { SolflareWalletName } from "@solana/wallet-adapter-solflare";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import type { MissionEngine } from "../engine/useMissionEngine";
-import { explorerTxUrl, PROGRAM_ID } from "../lib/constants";
-import { prepareMission } from "../lib/program";
+import { explorerTxUrl } from "../lib/constants";
+import { WalletTransaction } from "./WalletTransaction";
+import { LiveScamExercise } from "./LiveScamExercise";
 import { LessonQuiz } from "./LessonQuiz";
 
 const ERRORS: Record<string, string> = {
@@ -40,6 +41,7 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
   const { step, status, passed, failReason, signature } = engine;
   const wallet = useWallet();
   const [answer, setAnswer] = useState("");
+  if (step.scamScenario) return null;
   if (step.action === "quiz")
     return (
       <LessonQuiz
@@ -177,14 +179,35 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
           </p>
         </>
       )}
-      {step.action === "transaction" && (
+      {(step.action === "transaction" || step.action === "transfer") && (
+        <WalletTransaction
+          action={step.action === "transfer" ? "transfer" : "program"}
+          onReceipt={engine.recordReceipt}
+        />
+      )}
+      {step.id === "2.1" && (
         <>
-          <TransactionPreview
-            enabled={!passed}
-            onSubmit={engine.runCast}
-            busy={status === "checking"}
-          />
-          {!wallet.connected && <WalletMultiButton />}
+          <p>
+            A connection may be restored from a previous session. This shares
+            the selected public address; it does not sign a message or
+            transaction. Use Disconnect below, or remove this site through your
+            wallet's connected-app settings. Disconnecting does not revoke
+            on-chain permissions.
+          </p>
+          {wallet.connected && (
+            <button
+              className="button button-secondary"
+              onClick={() => void wallet.disconnect()}
+            >
+              Disconnect wallet
+            </button>
+          )}
+          <details>
+            <summary>
+              Optional: clearly disclosed training-message signature
+            </summary>
+            <LiveScamExercise scenarioId="scam.message" onBusy={() => {}} />
+          </details>
         </>
       )}
       {(step.action === "explorer" || step.action === "transaction") &&
@@ -197,7 +220,7 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
             void engine.runFlag(answer);
           }}
         >
-          <label htmlFor="exercise-code">Public exercise code</label>
+          <label htmlFor="exercise-code">Public practice code</label>
           <p className="panel-caption">
             Only the CTF code from the logs belongs here.
           </p>
@@ -238,7 +261,7 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
         <>
           <h2>
             {engine.steps
-              .filter((item) => item.action !== "summary")
+              .filter((item) => item.action !== "summary" && !item.optional)
               .every((item) => engine.completed.includes(item.id))
               ? "You’ve completed the walkthrough."
               : "Your course, at a glance."}
@@ -266,7 +289,7 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
               Positive balance and program call <span>RPC checked</span>
             </li>
             <li>
-              Explorer inspection and exercise code{" "}
+              Explorer inspection and practice code{" "}
               <span>Self + local check</span>
             </li>
           </ul>
@@ -287,7 +310,7 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
           {step.verification === "self"
             ? "You confirmed this step."
             : step.verification === "answer"
-              ? "Exercise code matched."
+              ? "Practice code matched."
               : "Check complete."}{" "}
           You can continue or review the explanation.
         </p>
@@ -336,116 +359,6 @@ function Receipt({ signature }: { signature: string }) {
       >
         Inspect in Solana Explorer ↗
       </a>
-    </div>
-  );
-}
-function TransactionPreview({
-  enabled,
-  busy,
-  onSubmit,
-}: {
-  enabled: boolean;
-  busy: boolean;
-  onSubmit: () => Promise<void>;
-}) {
-  const { connection } = useConnection();
-  const { publicKey } = useWallet();
-  const [preview, setPreview] = useState<{
-    fee: number | null;
-    error: string | null;
-  }>({ fee: null, error: null });
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    if (!publicKey || !enabled) return;
-    let cancelled = false;
-    void prepareMission(connection, publicKey)
-      .then((result) => {
-        if (!cancelled) setPreview({ fee: result.feeLamports, error: null });
-      })
-      .catch(() => {
-        if (!cancelled)
-          setPreview({
-            fee: null,
-            error:
-              "Could not prepare a Devnet preview. The RPC or teaching program may be unavailable. No signing request was made.",
-          });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connection, publicKey, enabled, retry]);
-  return (
-    <div className="transaction-preview">
-      <h3>Before your wallet opens</h3>
-      <dl>
-        <div>
-          <dt>Network</dt>
-          <dd>Solana Devnet</dd>
-        </div>
-        <div>
-          <dt>Action</dt>
-          <dd>Call the teaching program to write a public log</dd>
-        </div>
-        <div>
-          <dt>Asset transfer</dt>
-          <dd>No SOL transfer instruction</dd>
-        </div>
-        <div>
-          <dt>Estimated network fee</dt>
-          <dd>
-            {preview.fee === null
-              ? enabled
-                ? "Unavailable until preview loads"
-                : "See your receipt"
-              : `${preview.fee} lamports (${preview.fee / 1_000_000_000} SOL)`}
-          </dd>
-        </div>
-        <div>
-          <dt>Program address</dt>
-          <dd>
-            <code>{PROGRAM_ID.toBase58()}</code>
-          </dd>
-        </div>
-      </dl>
-      <p className="panel-caption">
-        The fee is refreshed before sending and may differ. Read the wallet’s
-        final details. The fee payer is your connected wallet.
-      </p>
-      {preview.error && (
-        <div className="feedback warning" role="alert">
-          {preview.error}{" "}
-          <button
-            className="text-button"
-            disabled={busy}
-            onClick={() => {
-              setPreview({ fee: null, error: null });
-              setRetry((n) => n + 1);
-            }}
-          >
-            Retry preview
-          </button>
-        </div>
-      )}
-      <button
-        className="button button-primary"
-        disabled={
-          !publicKey ||
-          busy ||
-          !enabled ||
-          preview.fee === null ||
-          !!preview.error
-        }
-        onClick={() => {
-          void onSubmit();
-        }}
-      >
-        {busy
-          ? "Waiting for wallet / network…"
-          : !enabled
-            ? "✓ Transaction completed"
-            : "Review in wallet"}{" "}
-        <span aria-hidden>↗</span>
-      </button>
     </div>
   );
 }

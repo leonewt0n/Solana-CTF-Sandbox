@@ -1,50 +1,92 @@
 import { flattenSteps } from "../content/missions";
+import { LEGACY_LESSON_IDS } from "../content/legacyLessonIds";
+import { validAssessment, type Assessment } from "../content/scams";
 export const STEPS = flattenSteps();
-export const STORAGE_PREFIX = "solana-learn:v3:";
+export const STORAGE_PREFIX = "solana-learn:v4:";
 export type Progress = {
   stepIndex: number;
   completed: string[];
   signature: string | null;
+  version?: 4;
+  lessonId?: string;
+  assessments?: Record<string, Assessment>;
+  transferSignature?: string | null;
+  programSignature?: string | null;
 };
 export const emptyProgress = (): Progress => ({
+  version: 4,
+  lessonId: STEPS[0].id,
   stepIndex: 0,
   completed: [],
   signature: null,
+  assessments: {},
+  transferSignature: null,
+  programSignature: null,
 });
-const connectIndex = STEPS.findIndex((step) => step.action === "connect");
+const signatureValue = (value: unknown) =>
+  typeof value === "string" && /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(value)
+    ? value
+    : null;
+const portableIds = new Set([
+  "web3.why",
+  "web3.blockchain",
+  "solana.why",
+  "web3.uses",
+  "1.1",
+  "1.2",
+  "1.3",
+  "security.share",
+]);
 export function normalizeProgress(data: unknown): Progress | null {
-  if (
-    !data ||
-    typeof data !== "object" ||
-    !("stepIndex" in data) ||
-    !("completed" in data)
-  )
-    return null;
-  const record = data as {
-    stepIndex: number;
-    completed: unknown[];
-    signature?: unknown;
-  };
+  if (!data || typeof data !== "object") return null;
+  const record = data as Progress;
   if (!Number.isInteger(record.stepIndex) || !Array.isArray(record.completed))
     return null;
-  // Previously only a contiguous completed prefix was restored. Free exploration now preserves independent completed checks.
-  // Local storage is convenience, not proof of an on-chain achievement.
-  const signature =
-    typeof record.signature === "string" &&
-    /^[1-9A-HJ-NP-Za-km-z]{64,88}$/.test(record.signature)
-      ? record.signature
-      : null;
+  const legacy = record.version !== 4;
+  const lessonId = legacy
+    ? LEGACY_LESSON_IDS[record.stepIndex]
+    : record.lessonId;
+  const stepIndex = Math.max(
+    0,
+    STEPS.findIndex((s) => s.id === lessonId),
+  );
+  const programSignature = signatureValue(
+    record.programSignature ?? record.signature,
+  );
+  const transferSignature = legacy
+    ? null
+    : signatureValue(record.transferSignature);
+  const assessments: Record<string, Assessment> = {};
+  if (!legacy && record.assessments && typeof record.assessments === "object") {
+    for (const step of STEPS) {
+      const result = record.assessments[step.id];
+      if (
+        step.scamScenario &&
+        result &&
+        typeof result.inspection === "string" &&
+        validAssessment(step.scamScenario, result)
+      )
+        assessments[step.id] = result;
+    }
+  }
   const completed = STEPS.filter(
     (step) =>
       step.action !== "summary" &&
       record.completed.includes(step.id) &&
-      (signature !== null ||
-        !["transaction", "explorer"].includes(step.action)),
-  ).map((step) => step.id);
+      (!step.scamScenario || !!assessments[step.id]) &&
+      (!["transaction", "explorer"].includes(step.action) ||
+        !!programSignature) &&
+      (step.action !== "transfer" || !!transferSignature),
+  ).map((s) => s.id);
   return {
-    stepIndex: Math.max(0, Math.min(record.stepIndex, STEPS.length - 1)),
+    version: 4,
+    lessonId: STEPS[stepIndex].id,
+    stepIndex,
     completed,
-    signature,
+    signature: programSignature,
+    assessments,
+    transferSignature,
+    programSignature,
   };
 }
 export function readProgress(
@@ -52,10 +94,11 @@ export function readProgress(
   storage: Pick<Storage, "getItem"> = localStorage,
 ): Progress | null {
   try {
-    const raw = storage.getItem(STORAGE_PREFIX + owner);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return normalizeProgress(data);
+    // Preserve the original v3 record, including its wallet-specific public receipt.
+    const raw =
+      storage.getItem(STORAGE_PREFIX + owner) ??
+      storage.getItem("solana-learn:v3:" + owner);
+    return raw ? normalizeProgress(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -63,39 +106,43 @@ export function readProgress(
 export function initialProgress(owner: string): Progress {
   const saved = readProgress(owner);
   if (saved) return saved;
-  // Only pre-connection learning follows the learner into a new account, including checks completed out of order.
-  // Later wallet activity, transaction receipts, and results remain account-specific.
   const anonymous = owner === "anon" ? null : readProgress("anon");
-  const setup = introductoryProgress(anonymous ?? emptyProgress()).completed;
-  return {
-    ...emptyProgress(),
-    completed: setup,
-    stepIndex: anonymous?.stepIndex ?? 0,
-  };
+  return anonymous ? introductoryProgress(anonymous) : emptyProgress();
 }
 export function completeStep(progress: Progress, id: string): Progress {
-  if (progress.completed.includes(id)) return progress;
-  const step = STEPS.find((item) => item.id === id);
-  if (!step || step.action === "summary") return progress;
+  const step = STEPS.find((s) => s.id === id);
+  if (!step || step.action === "summary" || progress.completed.includes(id))
+    return progress;
+  if (
+    step.scamScenario &&
+    (!progress.assessments?.[id] ||
+      !validAssessment(step.scamScenario, progress.assessments[id]))
+  )
+    return progress;
   if (["transaction", "explorer"].includes(step.action) && !progress.signature)
+    return progress;
+  if (step.action === "transfer" && !progress.transferSignature)
     return progress;
   return {
     ...progress,
     completed: STEPS.filter(
-      (item) => item.id === id || progress.completed.includes(item.id),
-    ).map((item) => item.id),
+      (s) => s.id === id || progress.completed.includes(s.id),
+    ).map((s) => s.id),
   };
 }
-
 /** Only introductory learning travels without proving wallet ownership. */
 export function introductoryProgress(progress: Progress): Progress {
-  const completed = STEPS.slice(0, connectIndex)
-    .filter((step) => progress.completed.includes(step.id))
-    .map((step) => step.id);
+  const base = emptyProgress();
+  const index = portableIds.has(STEPS[progress.stepIndex]?.id)
+    ? progress.stepIndex
+    : 0;
   return {
-    stepIndex: Math.min(progress.stepIndex, connectIndex),
-    completed,
-    signature: null,
+    ...base,
+    stepIndex: index,
+    lessonId: STEPS[index].id,
+    completed: STEPS.filter(
+      (s) => portableIds.has(s.id) && progress.completed.includes(s.id),
+    ).map((s) => s.id),
   };
 }
 export function mergeIntroductoryProgress(
@@ -104,9 +151,8 @@ export function mergeIntroductoryProgress(
 ): Progress {
   const portable = introductoryProgress(incoming);
   const completed = STEPS.filter(
-    (step) =>
-      local.completed.includes(step.id) || portable.completed.includes(step.id),
-  ).map((step) => step.id);
+    (s) => local.completed.includes(s.id) || portable.completed.includes(s.id),
+  ).map((s) => s.id);
   const stepIndex =
     local.completed.length === 0 && local.stepIndex === 0
       ? portable.stepIndex
@@ -114,5 +160,5 @@ export function mergeIntroductoryProgress(
   return JSON.stringify(completed) === JSON.stringify(local.completed) &&
     stepIndex === local.stepIndex
     ? local
-    : { ...local, completed, stepIndex };
+    : { ...local, completed, stepIndex, lessonId: STEPS[stepIndex].id };
 }

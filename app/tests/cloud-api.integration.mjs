@@ -8,6 +8,26 @@ import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import bs58 from "bs58";
 
+const fixture = (stepIndex, completed = [], signature = null) => ({
+  version: 4,
+  lessonId:
+    [
+      "1.1",
+      "1.2",
+      "1.3",
+      "security.share",
+      "2.1",
+      "3.1",
+      "fees.explain",
+      "4.1",
+    ][stepIndex] ?? "5.1",
+  stepIndex,
+  completed,
+  signature,
+  assessments: {},
+  transferSignature: null,
+  programSignature: signature,
+});
 const state = await mkdtemp(join(tmpdir(), "solana-learn-test-"));
 const wrangler = "node_modules/wrangler/bin/wrangler.js";
 const origin = "http://127.0.0.1:8799";
@@ -120,13 +140,13 @@ try {
     401,
   );
   check("real Ed25519 login and replay rejection");
-  const empty = { stepIndex: 0, completed: [], signature: null };
+  const empty = fixture(0);
   const initial = await first(`/api/progress?wallet=${a.address}`);
   assert.equal(initial.data.progress, null);
   const put = (client, progress, revision, owner = a.address) =>
     client("/api/progress", "PUT", {
       wallet: owner,
-      version: 3,
+      version: 4,
       progress,
       revision,
     });
@@ -184,11 +204,7 @@ try {
   );
   assert.equal((await tampered("/api/progress")).status, 401);
   check("wrong-wallet signature rejected");
-  const advanced = { stepIndex: 1, completed: ["web3.why"], signature: null };
-  // Read the canonical step ID from the public lesson source, without duplicating curriculum IDs.
-  const { readFile } = await import("node:fs/promises");
-  const content = await readFile("src/content/missions.ts", "utf8");
-  advanced.completed = [content.match(/id: "([^"]+)",\s*title:/)[1]];
+  const advanced = fixture(1, ["1.1"]);
   save = await put(first, advanced, 2);
   assert.equal(save.status, 200);
   assert.equal((await put(first, empty, save.data.revision)).status, 200);

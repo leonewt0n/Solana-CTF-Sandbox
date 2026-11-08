@@ -1,12 +1,32 @@
 // Disposable workerd/D1 tests. Local email mode never sends to real recipients.
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 import { once } from "node:events";
 import bs58 from "bs58";
+const fixture = (stepIndex, completed = [], signature = null) => ({
+  version: 4,
+  lessonId:
+    [
+      "1.1",
+      "1.2",
+      "1.3",
+      "security.share",
+      "2.1",
+      "3.1",
+      "fees.explain",
+      "4.1",
+    ][stepIndex] ?? "5.1",
+  stepIndex,
+  completed,
+  signature,
+  assessments: {},
+  transferSignature: null,
+  programSignature: signature,
+});
 const state = await mkdtemp(join(tmpdir(), "solana-learn-accounts-"));
 const wrangler = "node_modules/wrangler/bin/wrangler.js";
 const origin = "http://127.0.0.1:8801";
@@ -140,23 +160,35 @@ try {
   const source = browser(),
     destination = browser(),
     stranger = browser();
-  const content = await readFile("src/content/missions.ts", "utf8");
-  const steps = [...content.matchAll(/^        id: "([^"]+)"/gm)].map(
-    (match) => match[1],
-  );
-  const connect = steps.indexOf("2.1"),
-    transaction = steps.indexOf("5.1");
-  assert.ok(connect > 0 && transaction > connect);
-  const intro = { stepIndex: 2, completed: steps.slice(0, 2), signature: null };
-  const empty = { stepIndex: 0, completed: [], signature: null };
+  const steps = [
+    "1.1",
+    "1.2",
+    "1.3",
+    "security.share",
+    "2.1",
+    "3.1",
+    "fees.explain",
+    "4.1",
+  ];
+  const { build } = await import("rolldown");
+  await build({
+    input: "src/engine/progress.ts",
+    platform: "node",
+    output: { format: "esm", file: join(state, "progress.mjs") },
+  });
+  const { STEPS } = await import(join(state, "progress.mjs"));
+  const programIndex = STEPS.findIndex((s) => s.id === "5.1");
+  const connect = 4;
+  const intro = fixture(2, steps.slice(0, 2));
+  const empty = fixture(0);
   const full = {
-    stepIndex: transaction + 1,
-    completed: steps.slice(0, transaction + 1),
-    signature: "5".repeat(88),
+    ...fixture(8, steps, "5".repeat(88)),
+    lessonId: "5.1",
+    stepIndex: programIndex,
   };
   assert.equal((await source.request("/api/account")).data.learner, null);
   const transfer = await source.request("/api/transfer/create", "POST", {
-    version: 3,
+    version: 4,
     progress: full,
   });
   assert.equal(transfer.status, 200);
@@ -165,11 +197,7 @@ try {
     code: transfer.data.code,
   });
   assert.equal(restored.status, 200);
-  assert.deepEqual(restored.data.progress, {
-    stepIndex: connect,
-    completed: steps.slice(0, connect),
-    signature: null,
-  });
+  assert.deepEqual(restored.data.progress, fixture(0, steps.slice(0, connect)));
   assert.equal((await destination.request("/api/account")).data.learner, null);
   assert.equal((await destination.request("/api/progress")).status, 401);
   assert.equal(
@@ -184,7 +212,7 @@ try {
     "cross-browser transfer restores introductory lessons, strips receipts, grants no session, and is single-use",
   );
   const expired = await source.request("/api/transfer/create", "POST", {
-    version: 3,
+    version: 4,
     progress: intro,
   });
   sql("UPDATE progress_transfers SET expires_at = 0");
@@ -210,7 +238,7 @@ try {
       await source.request(
         "/api/transfer/create",
         "POST",
-        { version: 3, progress: intro },
+        { version: 4, progress: intro },
         { Origin: "https://attacker.example" },
       )
     ).status,
@@ -225,7 +253,7 @@ try {
   );
   const first = await source.request("/api/progress", "PUT", {
     wallet: "anon",
-    version: 3,
+    version: 4,
     revision: 0,
     progress: intro,
   });
@@ -240,7 +268,7 @@ try {
     (
       await destination.request("/api/progress", "PUT", {
         wallet: "anon",
-        version: 3,
+        version: 4,
         revision: 0,
         progress: empty,
       })
@@ -264,6 +292,75 @@ try {
     403,
   );
   check("learner isolation and stale-tab account identity checks");
+  const legacyOwner = identity(),
+    migrationClient = browser();
+  const legacyProgress = {
+    stepIndex: 12,
+    completed: ["web3.why", "1.1", "scam.airdrop", "5.1"],
+    signature: "5".repeat(88),
+  };
+  const legacyText = JSON.stringify(legacyProgress);
+  sql(
+    `INSERT INTO course_progress(wallet, course_version, progress, revision, updated_at) VALUES ('${legacyOwner.wallet}', 3, '${legacyText}', 7, 1)`,
+  );
+  assert.equal((await walletLogin(migrationClient, legacyOwner)).status, 200);
+  const migrated = await migrationClient.request("/api/progress");
+  assert.equal(migrated.data.version, 4);
+  assert.equal(migrated.data.revision, 0);
+  assert.equal(migrated.data.progress.lessonId, "5.1");
+  assert.equal(
+    migrated.data.progress.programSignature,
+    legacyProgress.signature,
+  );
+  assert.ok(!migrated.data.progress.completed.includes("scam.airdrop"));
+  assert.ok(migrated.data.progress.completed.includes("1.1"));
+  assert.equal(
+    (
+      await migrationClient.request("/api/progress", "PUT", {
+        wallet: legacyOwner.wallet,
+        version: 4,
+        revision: 0,
+        progress: migrated.data.progress,
+      })
+    ).status,
+    200,
+  );
+  const original = JSON.parse(
+    cli(
+      "d1",
+      "execute",
+      "DB",
+      "--local",
+      "--persist-to",
+      state,
+      "--command",
+      `SELECT progress, revision FROM course_progress WHERE wallet = '${legacyOwner.wallet}' AND course_version = 3`,
+      "--json",
+    ).toString(),
+  );
+  assert.equal(original[0].results[0].progress, legacyText);
+  assert.equal(original[0].results[0].revision, 7);
+  const historicalCode = "AABBCCDDEEFF00112233";
+  const { createHash } = await import("node:crypto");
+  sql(
+    `INSERT INTO progress_transfers(code_hash, course_version, progress, expires_at) VALUES ('${createHash("sha256").update(historicalCode).digest("hex")}', 3, '${JSON.stringify({ stepIndex: 2, completed: ["web3.why", "web3.blockchain"], signature: null })}', ${Date.now() + 60000})`,
+  );
+  const compatibility = await destination.request(
+    "/api/transfer/redeem",
+    "POST",
+    { code: historicalCode },
+  );
+  assert.equal(compatibility.status, 200);
+  assert.equal(compatibility.data.version, 4);
+  assert.equal(compatibility.data.progress.lessonId, "solana.why");
+  assert.deepEqual(compatibility.data.progress.completed, [
+    "web3.why",
+    "web3.blockchain",
+  ]);
+  assert.equal(compatibility.data.progress.signature, null);
+  check(
+    "v3 migration preserves original rows and receipts, renews scam checks, and redeems legacy introductory codes",
+  );
   const key = identity(),
     legacy = browser();
   assert.equal((await walletLogin(legacy, key)).status, 200);
@@ -271,7 +368,7 @@ try {
     (
       await legacy.request("/api/progress", "PUT", {
         wallet: key.wallet,
-        version: 3,
+        version: 4,
         revision: 0,
         progress: full,
       })
@@ -339,12 +436,12 @@ try {
   check(
     "newly linked wallets inherit introductory learning even before their first wallet save",
   );
-  const independent = { stepIndex: 1, completed: [steps[1]], signature: null };
+  const independent = fixture(1, [steps[1]]);
   assert.equal(
     (
       await stranger.request("/api/progress", "PUT", {
         wallet: "anon",
-        version: 3,
+        version: 4,
         revision: 0,
         progress: independent,
       })
@@ -356,12 +453,12 @@ try {
     (await walletLogin(stranger, independentWallet, accountB)).status,
     200,
   );
-  const otherCheck = { stepIndex: 0, completed: [steps[0]], signature: null };
+  const otherCheck = fixture(0, [steps[0]]);
   assert.equal(
     (
       await stranger.request("/api/progress", "PUT", {
         wallet: independentWallet.wallet,
-        version: 3,
+        version: 4,
         revision: 0,
         progress: otherCheck,
       })

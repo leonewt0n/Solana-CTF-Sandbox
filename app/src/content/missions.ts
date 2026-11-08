@@ -1,4 +1,4 @@
-import { SCAM_LAB_MISSION } from "./scams";
+import { SCAM_LAB_MISSION, FINAL_SCENARIOS, ALL_SCENARIOS } from "./scams";
 // Lesson copy is reviewed against the linked primary sources. No market-share or speed ranking is implied.
 export type DiagramKind =
   | "records"
@@ -30,6 +30,7 @@ export type Step = {
     | "manual"
     | "connect"
     | "faucet"
+    | "transfer"
     | "transaction"
     | "explorer"
     | "flag"
@@ -40,6 +41,7 @@ export type Step = {
   source?: { label: string; href: string };
   diagram?: DiagramKind;
   scamScenario?: string;
+  optional?: boolean;
   quiz?: { question: string; options: QuizOption[]; correct: string };
 };
 export type Mission = {
@@ -50,7 +52,7 @@ export type Mission = {
   minutes: number;
   steps: Step[];
 };
-export const MISSIONS: Mission[] = [
+const ORIGINAL_MISSIONS: Mission[] = [
   {
     id: 1,
     name: "Why Web3?",
@@ -711,7 +713,7 @@ export const MISSIONS: Mission[] = [
           "Explain your choice in your own words, then continue when the check is complete.",
         terms: [],
         troubleshooting:
-          "Explore the fictional preview, then answer the learning check. Preview actions move no funds. Optional Real wallet practice uses a separate, disclosed Devnet transfer; check any saved receipt before repeating it.",
+          "Explore the fictional preview, then answer the learning check. Preview actions move no funds. All threat decisions are simulated and never open a wallet request.",
         action: "quiz",
         verification: "understanding",
         diagram: "airdrop",
@@ -848,10 +850,10 @@ export const MISSIONS: Mission[] = [
         instructions: [
           "Open your saved transaction using the Devnet explorer link below.",
           "Check that the result is successful. Compare the signer and invoked program with your wallet and the teaching program.",
-          "Find Program Instruction Logs and locate the full text beginning with CTF{ and ending with }. It is a public exercise code, not a secret.",
+          "Find Program Instruction Logs and locate the full text beginning with CTF{ and ending with }. It is a public practice code, not a secret.",
         ],
         expected:
-          "You can identify the transaction’s result, signer, program, and exercise code in its logs.",
+          "You can identify the transaction’s result, signer, program, and practice code in its logs.",
         terms: [
           {
             term: "Transaction signature",
@@ -880,17 +882,17 @@ export const MISSIONS: Mission[] = [
         id: "6.2",
         title: "Check what you found.",
         objective:
-          "Confirm you located the public exercise code in the transaction logs.",
-        why: "This short check ties the walkthrough to the transaction you inspected. It checks the exercise code locally; it is not proof of wallet ownership or an independent audit of your activity.",
+          "Confirm you located the public practice code in the transaction logs.",
+        why: "This short check ties the walkthrough to the transaction you inspected. It checks the practice code locally; it is not proof of wallet ownership or an independent audit of your activity.",
         instructions: [
           "Copy the complete CTF{...} code from the program logs.",
-          "Paste only that exercise code below, including the braces.",
+          "Paste only that practice code below, including the braces.",
           "Check your answer. If it differs, revisit your transaction’s program logs.",
         ],
         expected: "The code matches the teaching program’s expected output.",
         terms: [
           {
-            term: "CTF flag",
+            term: "Public practice code",
             definition:
               "A recognizable text answer in a Capture the Flag exercise. Here it is intentionally public so you can practice reading logs.",
           },
@@ -934,3 +936,99 @@ export const MISSIONS: Mission[] = [
 export function flattenSteps(missions: Mission[] = MISSIONS): Step[] {
   return missions.flatMap((m) => m.steps);
 }
+
+const transferStep: Step = {
+  id: "transfer.first",
+  title: "Send between your two practice wallets.",
+  objective:
+    "Send exactly 0.001 Devnet SOL from Wallet A to your own Wallet B.",
+  why: "Create a second practice account in your wallet. Copy only its public address here. Compare the entire address with Wallet B before signing. Never enter a recovery phrase or private key.",
+  instructions: [
+    "Create Wallet B privately and select Devnet.",
+    "Connect Wallet A here. Paste Wallet B's public address and review every character.",
+    "Prepare once, inspect the simulation, fee and exact message, then approve only if they match.",
+    "Check the receipt. The sender loses 0.001 SOL plus the recorded fee; Wallet B receives 0.001 SOL.",
+  ],
+  expected:
+    "A successful receipt with matching sender, recipient, amount and recorded balance changes.",
+  terms: [],
+  troubleshooting:
+    "An uncertain receipt blocks another transaction. Reconcile it after refresh. Current balances can include other activity.",
+  action: "transfer",
+  verification: "rpc",
+  diagram: "journey",
+};
+const byMission = (id: number) => ORIGINAL_MISSIONS.find((m) => m.id === id)!;
+const optionalIds = new Set([
+  "web3.why",
+  "web3.blockchain",
+  "solana.why",
+  "web3.uses",
+  "scam.delegate",
+  "scam.authority",
+]);
+export const MISSIONS: Mission[] = [
+  byMission(3),
+  byMission(4),
+  {
+    id: 10,
+    name: "Your first transfer",
+    description: "Move test SOL between accounts you control",
+    icon: "send",
+    minutes: 5,
+    steps: [transferStep],
+  },
+  byMission(6),
+  {
+    ...byMission(8),
+    steps: byMission(8).steps.filter((s) => !optionalIds.has(s.id)),
+  },
+  byMission(5),
+  byMission(7),
+  {
+    id: 11,
+    name: "Independent decisions",
+    description: "Three new requests, with evidence",
+    icon: "shield",
+    minutes: 5,
+    steps: FINAL_SCENARIOS.map((scenario) => ({
+      id: scenario.id,
+      title: scenario.title,
+      objective: "Inspect the evidence and explain your decision.",
+      why: scenario.setup,
+      instructions: [],
+      expected: "Correct decision supported by the request evidence.",
+      terms: [],
+      troubleshooting:
+        "Read the complete request before deciding. You can retry.",
+      action: "quiz" as const,
+      verification: "understanding" as const,
+      scamScenario: scenario.id,
+    })),
+  },
+  byMission(9),
+  {
+    id: 12,
+    name: "Optional deeper learning",
+    description: "Protocol foundations and account authorities",
+    icon: "book",
+    minutes: 15,
+    steps: ORIGINAL_MISSIONS.flatMap((m) => m.steps)
+      .filter((s) => optionalIds.has(s.id))
+      .map((s) => ({ ...s, optional: true })),
+  },
+];
+// Neutral prompts withhold interpretations until the learner has made a decision.
+for (const mission of MISSIONS)
+  for (const step of mission.steps) {
+    if (!step.scamScenario) continue;
+    const scenario = ALL_SCENARIOS.find((s) => s.id === step.scamScenario)!;
+    step.title = scenario.title;
+    step.objective =
+      "Inspect the request, choose an action, and identify supporting evidence.";
+    step.why = scenario.setup;
+    step.explanation = [];
+    step.instructions = [];
+    step.safety =
+      "Fictional training only. No wallet request, funds, downloads, or secret entry.";
+  }

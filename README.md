@@ -1,133 +1,56 @@
-# On-Chain CTF Sandbox: Solana Explorer 101
+# Solana Learn
 
-**Track:** Best Beginner Hack
+A beginner learning app for wallet safety, Devnet transfers, request inspection, and transaction receipts. Threat scenarios are fictional simulations. All lessons remain open; browsing a lesson never completes it.
 
-A tiny educational dApp that teaches beginners how to read Solana on-chain data. You send a Devnet transaction, open it in Solana Explorer, find a flag in **Program Instruction Logs**, and submit it in the UI.
-## Current learning experience
+Start with **Try your first scam challenge**, or **Start learning from zero**. The recommended course covers wallet setup and secrets, connection permissions, Devnet funding, a 0.001 Devnet SOL transfer between two accounts you create, threat decisions, a teaching-program call, and receipt investigation. Protocol foundations and advanced authorities remain available as optional lessons.
 
-Solana Learn now offers a nine-module, 30-step beginner course, starting without a wallet: why Web3 exists, how blockchain records work, Solana and network tradeoffs, and common uses. It then guides wallet setup and Devnet practice, includes explorer evidence and a public log-code exercise, and adds 14 interactive scam scenarios across the course. A separate Scam practice tab lets anyone explore all scenarios without connecting a wallet.
+Each scenario includes a legitimate comparison. Completion requires inspecting request-specific evidence, choosing an action, and identifying supporting evidence. Three new final assessments test proceeding, rejecting, and investigating an unresolved receipt. Mistakes are retryable. Completion is a learning record, not a certification.
 
-The dark neutral course interface uses larger text, compact original 3D accents, interactive 2D diagrams, learning checks with explanatory feedback, a searchable glossary, and reduced-motion-aware module celebrations. Progress is cached locally, with wallet-authenticated Cloudflare D1 sync and one-time browser-transfer codes for introductory lessons. Learner accounts support email-code login and later wallet linking; public email delivery requires a configured sender. Preview mode involves no deposit, custody, recovery-phrase input, or wallet request. Selected course lessons also offer five optional exercises with real training-message signatures or bounded 0.001 Devnet SOL transfers; see [live wallet practice](design-previews/live-wallet-practice.md) for limits and verification status.
+## Run locally
 
-See [the frontend README](app/README.md) for commands, content sources, configuration, progress-version behavior, and verification limits. The frontend and progress API are hosted together on Cloudflare Workers, with progress stored in Cloudflare D1.
-
-## Quick review
-
-Start with the platform overview on the live site, then use its two-minute shortcuts to inspect a scam simulation, the Devnet exercise, and the explorer lesson. Every module and lesson is clickable without completing prerequisites. A public Explorer link shows the deployed teaching program without requiring the reviewer to connect a wallet. Viewing or skipping lessons does not mark their checks complete.
-
-## Try it
-
-- **Live demo:** [Solana Learn](https://solana-learn.intelligentape.workers.dev)
-- **Program ID (Devnet):** `4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa`
-- **Explorer:** [Program on Solana Explorer (Devnet)](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet)
-
-The program is intentionally chatty: it emits `CTF{...}` into the logs on purpose so you can practice using a block explorer.
-
-## Try it
-
-| | |
-|---|---|
-| **Live demo** | _(coming soon — deploy URL goes here)_ |
-| **Program ID (Devnet)** | `4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa` |
-| **Explorer** | [Program on Solana Explorer (Devnet)](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet) |
-
-The program is already deployed on Devnet. For a local UI you only need the frontend (see below). Redeploy the program only if you change Rust code.
-
-## How to play
-
-1. Switch your wallet to **Devnet** (Phantom / Solflare / Backpack).
-2. Get free Devnet SOL from the [Solana Faucet](https://faucet.solana.com/).
-3. Open the app → connect wallet → click **Trigger Mission Instruction**.
-4. Approve the transaction.
-5. Open the Explorer deep-link from the UI (keep `cluster=devnet`).
-6. Scroll to **Program Instruction Logs** and copy the `CTF{...}` string.
-7. Paste it into **Submit flag** on the web portal.
-- **Wallet Integration:** Connect Phantom, MetaMask (Solana), Backpack, or Solflare wallets.
-- **Interactive Missions:** Trigger devnet transactions directly from the UI.
-- **Guided Tutorials:** Step-by-step hints on how to open a transaction signature in a block explorer and read the program logs.
-- **Flag Verification:** A submission box to verify the hidden string (flag) found in the on-chain logs.
-
-## Project layout
-
-```
-app/       React + Vite frontend (wallet, mission UI, flag check)
-program/   Anchor program on Devnet (emits the flag in logs)
-```
-- **Frontend:** React.js, TailwindCSS
-- **Blockchain Integration:** `@solana/web3.js`, `@solana/wallet-adapter`, `@metamask/connect-solana`
-- **Smart Contract (Program):** Rust, Anchor Framework
-- **Network:** Solana Devnet
-
-## Run the frontend (usual path)
-
-Program is already on Devnet — no Rust/Anchor needed to try the app.
-
-**Need:** Node.js 18+
+Use Node.js 24.
 
 ```bash
-git clone https://github.com/leonewt0n/Solana-CTF-Sandbox.git
-cd Solana-CTF-Sandbox/app
-npm install
-npm run dev
-```
-- Node.js (v24+)
-- Rust
-- Solana CLI
-- Anchor
-
-Open [http://localhost:3000](http://localhost:3000).
-
-Frontend env (`app/.env`):
-
-```env
-VITE_PROGRAM_ID=4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa
-VITE_RPC_URL=https://api.devnet.solana.com
+cd app
+npm ci
+npm run build
+npm run db:migrate:local
+npm run worker:dev
 ```
 
-More frontend detail: [`app/README.md`](app/README.md).
-
-## Redeploy the program (optional)
-
-**Need:** Rust, Solana CLI, Anchor. Fund `~/.config/solana/id.json` via the [faucet](https://faucet.solana.com/).
+Open http://localhost:8787. Stop with Ctrl+C. Rebuild after frontend edits. For frontend-only development, run `npm run dev` and open http://localhost:3000; API login and cloud saves need the Worker.
 
 ```bash
-cd program
-anchor build
-anchor keys sync
-anchor deploy --provider.cluster devnet
+npm test
+npm run lint
+npm run build
+npm run worker:check
+npm run test:cloud
+npm run test:accounts
 ```
 
-If the Program ID changes, update `app/.env` (`VITE_PROGRAM_ID`) and the IDL under `app/src/idl/`.
+Both API suites create disposable local D1 databases. They use ports 8799 and 8801 and send no email or blockchain transactions. GitHub Actions runs these checks on pushes and pull requests with Node.js 24 and `npm ci`.
 
-## Features
+## Demo and configuration
 
-- Wallet connect: Phantom, Backpack, Solflare
-- One mission: call `trigger_mission` on Devnet
-- Guided hints for Explorer + program logs
-- Client-side flag verify (SHA-256 hash — plaintext flag is not stored in the UI)
+- [Live app](https://solana-learn.intelligentape.workers.dev) — deployed 2026-11-08; all 31 built static files verified by SHA-256.
+- [Teaching program on Devnet Explorer](https://explorer.solana.com/address/4N7BDpSPfdcfK7LSoZBRGUdabSY1Z5thjyUH2hSxBPQa?cluster=devnet).
+- Optional frontend environment variables: `VITE_RPC_URL` and `VITE_PROGRAM_ID`. These are public configuration, never secrets.
 
-## Tech stack
+The app verifies Devnet genesis before wallet operations. It uses the existing wallet-adapter integration and web3.js API. A transfer sends exactly 0.001 Devnet SOL to your independently reviewed Wallet B. Both transfers and program calls simulate before review, cap fees at 50,000 lamports, sign the exact reviewed message, and durably save the identifier before broadcasting. An unresolved attempt blocks another transaction. Expiry or changed details require a new review. [Solana confirmation guidance](https://solana.com/developers/cookbook/transactions/confirmation) informs reconciliation.
 
-- **Frontend:** React, TypeScript, Vite, Tailwind CSS
-- **Web3:** `@solana/web3.js`, `@solana/wallet-adapter`
-- **Program:** Rust + Anchor
-- **Network:** Solana Devnet
-## How to Learn
+Receipts verify successful execution and recorded balance changes. Current balances can include other activity. Old training-transfer launch controls are removed; their browser receipts remain available for reconciliation in transaction lessons. A separate, clearly disclosed training-message exercise remains in connection-permission teaching.
 
-1. Follow the course instructions to set up a fresh practice wallet privately.
-2. Connect the wallet and switch its interface to Solana Devnet.
-3. Request free test SOL using your public address at the official faucet.
-4. Review the teaching program, action, and estimated fee before opening your wallet.
-5. Approve only if the details match, then wait for successful transaction execution.
-6. Inspect the saved transaction on the Devnet explorer, find its public exercise code in the program logs, and check your answer.
-7. Review the learning summary or revisit any completed lesson without repeating the transaction.
+## Progress and accounts
 
-## Team
+Version 4 uses stable lesson IDs, assessment results, and separate transfer/program receipt references. Version 3 browser and cloud records retain their originals. Migration maps old indices to the frozen old lesson list, preserves unaffected completions and program receipts, and requires renewed scam assessments. Receipt references never travel through anonymous or cross-wallet introductory migration. Browser-transfer codes carry introductory learning only, including redeeming unexpired version 3 codes.
 
-Eligible for Best Beginner Hack (**>50%** first-time hackers / first Solana builders).
+Learner accounts can use configured email-code delivery, then link wallets by signing an explicit login message. Connecting alone never authenticates a cloud account or signs a transaction. Cloud changes stay pending until the acknowledged snapshot matches current progress. See [app operations](app/README.md).
 
-- **Diana** — Frontend & Web3 Integration
-- **Leo** — Anchor Program Development
-- **Anshul** — UI/UX & Documentation
+## Repository and contributions
 
-Built as our first Solana hackathon submission.
+- `app/`: React, TypeScript, Vite, wallet integration, and Cloudflare Worker/D1 progress API.
+- `program/`: Rust/Anchor teaching program. It deliberately emits a public `CTF{...}` practice code in logs. The local answer check is not competitive proof.
+- Git history records contributions from Anshul Jain/AnshulSancheti, Leo Newton, and Eva. No role split, eligibility claim, or external audit is inferred from those author records.
+
+See [verification status](docs/verification.md) and [five-person beginner-study protocol](docs/beginner-study.md). The app and Worker were deployed on 2026-11-08 after explicit authorization. No program redeployment, real-wallet signing, or participant recruitment was performed.

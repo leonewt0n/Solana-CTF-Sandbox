@@ -9,6 +9,8 @@ vi.mock("@solana/wallet-adapter-react", () => ({
 }));
 const owner = "11111111111111111111111111111111";
 const next: Progress = {
+  ...emptyProgress(),
+  lessonId: STEPS[1].id,
   stepIndex: 1,
   completed: [STEPS[0].id],
   signature: null,
@@ -17,7 +19,7 @@ const record = (progress: Progress | null, revision = 1, wallet = owner) => ({
   wallet,
   progress,
   revision,
-  version: 3,
+  version: 4,
 });
 const response = (data: unknown, status = 200) =>
   Response.json(data, { status });
@@ -145,7 +147,7 @@ describe("cloud progress synchronization", () => {
     const options = vi.mocked(fetch).mock.calls[1][1];
     expect(JSON.parse(options!.body as string)).toEqual({
       wallet: owner,
-      version: 3,
+      version: 4,
       revision: 4,
       progress: next,
     });
@@ -209,4 +211,48 @@ describe("cloud progress synchronization", () => {
     expect(restore).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+});
+
+it("does not show saved for a stale acknowledgement and uploads changes made during a save", async () => {
+  let acknowledgeFirst!: (value: Response) => void;
+  let acknowledgeSecond!: (value: Response) => void;
+  vi.mocked(fetch)
+    .mockResolvedValueOnce(response(record(emptyProgress(), 1)))
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          acknowledgeFirst = resolve;
+        }),
+    )
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          acknowledgeSecond = resolve;
+        }),
+    );
+  const { result } = renderHook(() => useHarness());
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+  act(() => result.current.setProgress(next));
+  expect(result.current.status).toBe("saving");
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2), {
+    timeout: 2000,
+  });
+  const newer = {
+    ...next,
+    stepIndex: 2,
+    lessonId: STEPS[2].id,
+    completed: [STEPS[0].id, STEPS[1].id],
+  };
+  act(() => result.current.setProgress(newer));
+  await act(async () => acknowledgeFirst(response(record(next, 2))));
+  expect(result.current.status).toBe("saving");
+  expect(result.current.message).not.toContain("Progress saved");
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3), {
+    timeout: 2000,
+  });
+  expect(
+    JSON.parse(vi.mocked(fetch).mock.calls[2][1]!.body as string).progress,
+  ).toEqual(newer);
+  await act(async () => acknowledgeSecond(response(record(newer, 3))));
+  await waitFor(() => expect(result.current.status).toBe("ready"));
 });

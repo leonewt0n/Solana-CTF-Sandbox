@@ -36,15 +36,9 @@ export function ScamPractice({
           ))}
         </select>
       </label>
-      <p className="lesson-objective">{scenario.objective}</p>
+
       <p>{scenario.setup}</p>
       <ScamSimulator key={scenario.id} scenarioId={scenario.id} />
-      <aside className="safety-note">
-        <div>
-          <strong>The habit to keep</strong>
-          <p>{scenario.takeaway}</p>
-        </div>
-      </aside>
       <a
         className="inline-link"
         href={scenario.source.href}

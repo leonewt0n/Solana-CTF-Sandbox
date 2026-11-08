@@ -1,12 +1,14 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { validAssessment, type Assessment } from "../content/scams";
 import { MISSIONS } from "../content/missions";
 import { assertDevnet } from "../lib/network";
-import { castSpell, checkFlag } from "./checks";
+import { checkFlag } from "./checks";
 import {
   completeStep,
   emptyProgress,
   initialProgress,
+  normalizeProgress,
   STEPS,
   STORAGE_PREFIX,
 } from "./progress";
@@ -96,7 +98,7 @@ export function useMissionEngine(owner: string) {
   function navigate(index: number) {
     if (busy.current || index < 0 || index >= STEPS.length) return;
     operation.current++;
-    setProgress((p) => ({ ...p, stepIndex: index }));
+    setProgress((p) => ({ ...p, stepIndex: index, lessonId: STEPS[index].id }));
     setStatus("idle");
     setFailReason(null);
     setBalanceLamports(null);
@@ -110,7 +112,7 @@ export function useMissionEngine(owner: string) {
     try {
       const result =
         kind === "transaction"
-          ? await castSpell(connection, wallet)
+          ? { ok: false, reason: "review-required", signature: undefined }
           : await checkFlag(input);
       if (!mounted.current || token !== operation.current) return;
       if (result.signature)
@@ -158,7 +160,33 @@ export function useMissionEngine(owner: string) {
     passed,
     storageFailed,
     canGoNext: progress.stepIndex < STEPS.length - 1,
+    assessScenario: (result: Assessment | null) => {
+      if (!step.scamScenario || busy.current) return false;
+      if (!result) return false;
+      if (!validAssessment(step.scamScenario, result)) return false;
+      setProgress((p) =>
+        completeStep(
+          normalizeProgress({
+            ...p,
+            assessments: { ...p.assessments, [step.id]: result },
+          })!,
+          step.id,
+        ),
+      );
+      return true;
+    },
+    recordReceipt: (action: "transfer" | "program", receipt: string) => {
+      setProgress((p) =>
+        completeStep(
+          action === "transfer"
+            ? { ...p, transferSignature: receipt }
+            : { ...p, signature: receipt, programSignature: receipt },
+          action === "transfer" ? "transfer.first" : "5.1",
+        ),
+      );
+    },
     checkAnswer: (optionId: string) => {
+      if (step.scamScenario) return false;
       if (step.action !== "quiz" || !step.quiz || busy.current) return false;
       const correct = optionId === step.quiz.correct;
       if (correct) pass(step.id);

@@ -74,12 +74,14 @@ it("supports email codes without a connected wallet", async () => {
 it("restores introductory progress from a browser-transfer code without email login", async () => {
   mocks.account.emailAvailable = false;
   const progress = {
+    ...emptyProgress(),
+    lessonId: STEPS[2].id,
     stepIndex: 2,
     completed: STEPS.slice(0, 2).map((step) => step.id),
     signature: null,
   };
   vi.mocked(fetch).mockResolvedValueOnce(
-    Response.json({ version: 3, progress }),
+    Response.json({ version: 4, progress }),
   );
   render(<Harness />);
   fireEvent.click(

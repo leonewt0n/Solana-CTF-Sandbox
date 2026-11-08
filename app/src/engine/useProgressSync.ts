@@ -56,7 +56,7 @@ async function api(
 function validateSaved(data: Saved, owner: string): Saved {
   if (
     data.wallet !== owner ||
-    data.version !== 3 ||
+    ![3, 4].includes(data.version) ||
     !Number.isSafeInteger(data.revision) ||
     data.revision < 0 ||
     (data.progress !== null && !normalizeProgress(data.progress))
@@ -209,6 +209,8 @@ export function useProgressSync(
         )
     )
       return;
+    setStatus("saving");
+    setMessage("Changes pending cloud save…");
     const token = generation.current;
     const timer = setTimeout(() => {
       if (!ready.current || token !== generation.current) return;
@@ -224,7 +226,7 @@ export function useProgressSync(
         "PUT",
         {
           wallet: owner,
-          version: 3,
+          version: 4,
           revision: revision.current,
           progress: outgoing,
         },
@@ -235,11 +237,19 @@ export function useProgressSync(
           const saved = validateSaved(data, owner);
           revision.current = saved.revision;
           savedText.current = JSON.stringify(saved.progress);
-          setStatus("ready");
+          const current = JSON.stringify(
+            scope.current === "learner"
+              ? introductoryProgress(latest.current)
+              : latest.current,
+          );
+          const acknowledged = savedText.current === current;
+          setStatus(acknowledged ? "ready" : "saving");
           setMessage(
-            saved.scope === "learner" && owner !== "anon"
-              ? "Introductory progress saved. Link this wallet to save wallet practice."
-              : "Progress saved to your account.",
+            !acknowledged
+              ? "Changes pending cloud save…"
+              : saved.scope === "learner" && owner !== "anon"
+                ? "Introductory progress saved. Link this wallet to save wallet practice."
+                : "Progress saved to your account.",
           );
         })
         .catch((error) => {

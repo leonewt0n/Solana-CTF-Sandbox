@@ -4,7 +4,7 @@ import {
   introductoryProgress,
 } from "../src/engine/progress";
 
-const VERSION = 3;
+const VERSION = 4;
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
 import {

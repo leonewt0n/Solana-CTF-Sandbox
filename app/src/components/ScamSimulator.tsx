@@ -1,41 +1,63 @@
 import { useId, useState } from "react";
-import { SCAM_SCENARIOS, type ScamScenario } from "../content/scams";
-import { Icon } from "./Icon";
+import {
+  ALL_SCENARIOS,
+  inspectionTask,
+  validAssessment,
+  type Assessment,
+  type ScamScenario,
+} from "../content/scams";
 
 /** This component intentionally has no wallet, RPC, network, clipboard, or account dependencies. */
-export function ScamSimulator({ scenarioId }: { scenarioId: string }) {
-  const scenario = SCAM_SCENARIOS.find((item) => item.id === scenarioId);
-  return scenario ? <Simulation key={scenarioId} scenario={scenario} /> : null;
+export function ScamSimulator({
+  scenarioId,
+  onAssessment,
+}: {
+  scenarioId: string;
+  onAssessment?: (result: Assessment | null) => void;
+}) {
+  const scenario = ALL_SCENARIOS.find((item) => item.id === scenarioId);
+  return scenario ? (
+    <Simulation
+      key={scenarioId}
+      scenario={scenario}
+      onAssessment={onAssessment}
+    />
+  ) : null;
 }
-function Simulation({ scenario }: { scenario: ScamScenario }) {
+function Simulation({
+  scenario,
+  onAssessment,
+}: {
+  scenario: ScamScenario;
+  onAssessment?: (result: Assessment | null) => void;
+}) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const [comparison, setComparison] = useState(false);
-  const [clues, setClues] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [variant, setVariant] = useState<Assessment["variant"]>("request");
+  const [inspection, setInspection] = useState("");
+  const [decision, setDecision] = useState("");
+  const [evidence, setEvidence] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const request =
-    comparison && scenario.comparison ? scenario.comparison : scenario.request;
-  const choice = request.choices.find((item) => item.id === selected);
-  const recommended = choice?.id === request.recommended;
-  function changeExample(value: boolean) {
-    setComparison(value);
-    setSelected(null);
-    setClues(false);
+    variant === "comparison" ? scenario.comparison! : scenario.request;
+  const task = inspectionTask(scenario.id, variant)!;
+  const result = { variant, inspection, decision, evidence };
+  const correct = validAssessment(scenario.id, result);
+  function reset(next = variant) {
+    setVariant(next);
+    setInspection("");
+    setDecision("");
+    setEvidence("");
+    setSubmitted(false);
+    setOpen(false);
+    onAssessment?.(null);
   }
   return (
     <section
       className="scam-simulator"
       aria-label={`${scenario.title} simulation`}
     >
-      <img
-        className="simulation-art"
-        src="/illustrations/safe-decisions.webp"
-        alt=""
-        width="1200"
-        height="675"
-      />
       <div className="simulation-banner">
-        <Icon name="shield" size={19} />
         <strong>TRAINING SIMULATION</strong>
         <span>No wallet request. No funds or secrets.</span>
       </div>
@@ -46,13 +68,16 @@ function Simulation({ scenario }: { scenario: ScamScenario }) {
           aria-label="Compare training examples"
         >
           <button
-            aria-pressed={!comparison}
-            onClick={() => changeExample(false)}
+            aria-pressed={variant === "request"}
+            onClick={() => reset("request")}
           >
-            {scenario.request.label}
+            Request A
           </button>
-          <button aria-pressed={comparison} onClick={() => changeExample(true)}>
-            {scenario.comparison.label}
+          <button
+            aria-pressed={variant === "comparison"}
+            onClick={() => reset("comparison")}
+          >
+            Request B
           </button>
         </div>
       )}
@@ -64,20 +89,13 @@ function Simulation({ scenario }: { scenario: ScamScenario }) {
           className="button button-secondary"
           aria-expanded={open}
           aria-controls={id}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setOpen(!open)}
         >
           {open ? "Hide simulated request" : "Review simulated request"}
         </button>
       </div>
       {open && (
         <div className="simulation-request" id={id}>
-          <div className="simulation-request-header">
-            <Icon name="wallet" size={24} />
-            <div>
-              <strong>Fictional request</strong>
-              <span>This is part of the lesson, not your wallet.</span>
-            </div>
-          </div>
           <dl className="simulation-fields">
             <div>
               <dt>Requesting site or source</dt>
@@ -92,85 +110,110 @@ function Simulation({ scenario }: { scenario: ScamScenario }) {
               </div>
             ))}
           </dl>
-          <details className="evidence-inspector">
-            <summary>Inspect the source</summary>
-            <p>
-              A familiar name or a message arriving in your wallet is not proof
-              of trust. Compare the exact source with a destination you verified
-              independently before acting.
-            </p>
-          </details>
-          <details className="evidence-inspector">
-            <summary>Inspect the requested action</summary>
-            <p>
-              Compare the stated purpose above with the information or
-              permission requested. Receiving an asset does not require giving
-              away recovery words.
-            </p>
-          </details>
+          <label className="scenario-picker">
+            {task.question}
+            <input
+              aria-label="Inspection answer"
+              value={inspection}
+              onChange={(e) => {
+                setInspection(e.target.value);
+                setSubmitted(false);
+                onAssessment?.(null);
+              }}
+            />
+          </label>
           <div
             className="simulation-choices"
             role="group"
             aria-label="Choose a simulated response"
           >
-            {request.choices.map((item) => (
+            {request.choices.map((choice) => (
               <button
-                className={`button ${item.id === "stop" ? "button-secondary" : "button-primary"}`}
-                key={item.id}
-                onClick={() => setSelected(item.id)}
-                aria-pressed={selected === item.id}
+                key={choice.id}
+                className="button button-secondary"
+                aria-pressed={decision === choice.id}
+                onClick={() => {
+                  setDecision(choice.id);
+                  setEvidence("");
+                  setSubmitted(false);
+                  onAssessment?.(null);
+                }}
               >
-                {item.label}
+                {choice.id === "proceed"
+                  ? "Proceed"
+                  : choice.id === "stop"
+                    ? "Reject"
+                    : "Investigate further"}
               </button>
             ))}
           </div>
-          {choice && (
-            <div
-              className={`simulation-feedback ${recommended ? "is-recommended" : "is-risky"}`}
-              role="status"
-            >
+          {decision && (
+            <>
+              <label className="scenario-picker">
+                Which evidence supports your decision?
+                <select
+                  aria-label="Supporting evidence"
+                  value={evidence}
+                  onChange={(e) => {
+                    setEvidence(e.target.value);
+                    setSubmitted(false);
+                    onAssessment?.(null);
+                  }}
+                >
+                  <option value="">Choose evidence</option>
+                  {request.fields.map(([label, value]) => (
+                    <option key={label} value={value}>
+                      {label}: {value}
+                    </option>
+                  ))}
+                  {!request.fields.some(
+                    ([, value]) => value === task.answer,
+                  ) && (
+                    <option value={task.answer}>
+                      The full comparison: {task.answer}
+                    </option>
+                  )}
+                  <option value="branding">The page looks professional</option>
+                  <option value="reject-all">
+                    All wallet requests should be rejected
+                  </option>
+                </select>
+              </label>
+              <button
+                className="button button-secondary"
+                disabled={!inspection.trim() || !evidence}
+                onClick={() => {
+                  setSubmitted(true);
+                  if (correct) onAssessment?.(result);
+                }}
+              >
+                Check decision and evidence
+              </button>
+            </>
+          )}
+          {submitted && (
+            <div className="simulation-feedback" role="status">
               <strong>
-                {recommended
-                  ? "A considered response."
-                  : "Let’s inspect that choice."}
+                {correct
+                  ? "Decision supported by evidence."
+                  : "Inspect the evidence and try again."}
               </strong>
-              <p>{choice.feedback}</p>
-              <p>
-                Only this training panel changed. No signature, transaction,
-                download, or secret submission occurred.
-              </p>
+              <p>{request.choices.find((c) => c.id === decision)?.feedback}</p>
+              <ul>
+                {request.clues.map((clue) => (
+                  <li key={clue}>{clue}</li>
+                ))}
+              </ul>
+              <p>{scenario.takeaway}</p>
             </div>
           )}
-          <button
-            className="text-button"
-            aria-expanded={clues}
-            onClick={() => setClues((value) => !value)}
-          >
-            {clues ? "Hide the clues" : "Show the clues"}
+          <button className="text-button" onClick={() => reset()}>
+            Reset simulation
           </button>
-          {clues && (
-            <ul className="simulation-clues">
-              {request.clues.map((clue) => (
-                <li key={clue}>{clue}</li>
-              ))}
-            </ul>
-          )}
-          {selected && (
-            <button
-              className="text-button"
-              onClick={() => {
-                setSelected(null);
-                setClues(false);
-              }}
-            >
-              Reset simulation
-            </button>
-          )}
         </div>
       )}
       <p className="simulation-footnote">
-        Names, domains, destinations, and amounts are fictional. Training
-        domains are not links, and no recovery-phrase entry is provided.
+        Fictional training content. No recovery-phrase entry is provided.
       </p>
     </section>
   );

@@ -67,10 +67,15 @@ function CourseSession({
   const [confirmReset, setConfirmReset] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
-  const taskCount = engine.steps.length - 1;
+  const taskCount = engine.steps.filter(
+    (step) => step.action !== "summary" && !step.optional,
+  ).length;
   const progress = Math.round(
     (engine.steps.filter(
-      (step) => step.action !== "summary" && engine.completed.includes(step.id),
+      (step) =>
+        step.action !== "summary" &&
+        !step.optional &&
+        engine.completed.includes(step.id),
     ).length /
       taskCount) *
       100,
@@ -445,10 +450,14 @@ function Overview({
             action means before you approve it.
           </p>
           <div className="hero-actions">
-            <button className="button button-primary" onClick={resume}>
+            <button className="button button-primary" onClick={openScams}>
+              Try your first scam challenge
+              <Icon name="arrow" size={18} />
+            </button>
+            <button className="button button-secondary" onClick={resume}>
               {engine.completed.length || engine.stepIndex > 0
                 ? "Continue learning"
-                : "Start from the beginning"}
+                : "Start learning from zero"}
               <Icon name="arrow" size={18} />
             </button>
             <span>
@@ -615,16 +624,21 @@ function Lesson({
           </h1>
           <p className="lesson-objective">{step.objective}</p>
           {step.scamScenario ? (
-            <ScamLesson key={step.id} scenarioId={step.scamScenario} />
+            <ScamLesson
+              key={step.id}
+              scenarioId={step.scamScenario}
+              onAssessment={engine.assessScenario}
+            />
           ) : (
             <LessonScene key={`scene-${step.id}`} step={step} />
           )}
-          <LessonExplanation key={`explanation-${step.id}`} step={step} />
+          {!step.scamScenario && (
+            <LessonExplanation key={`explanation-${step.id}`} step={step} />
+          )}
           {step.diagram && !step.scamScenario && (
-            <details className="extra-experiment">
-              <summary>Explore another example</summary>
+            <section className="extra-experiment">
               <LearningVisual kind={step.diagram} />
-            </details>
+            </section>
           )}
           {step.instructions.length > 0 && (
             <section
@@ -757,7 +771,7 @@ function Lesson({
             <Icon name="shield" size={17} />
             <p>
               {step.scamScenario
-                ? "Preview mode is simulated. Optional live exercises are clearly marked and require wallet approval. Learning checks stay separate."
+                ? "Threat decisions are entirely simulated. Inspect evidence, decide, and explain why."
                 : step.action === "quiz"
                   ? "Make a choice. Get feedback. Try again. No wallet requests in these learning checks."
                   : "Keep your recovery phrase private. This course never needs to see it."}
@@ -845,7 +859,7 @@ function ProgressView({
           Learning checks run locally. Wallet creation, backup, and wallet
           network settings are self-confirmed. Connection is checked through
           your wallet, balances and execution through Devnet RPC, and the public
-          exercise code is checked locally. Cloud sync verifies wallet
+          practice code is checked locally. Cloud sync verifies wallet
           ownership; it does not independently verify lesson completion.
         </p>
       </aside>

@@ -19,7 +19,6 @@
     "test:accounts": "node tests/learner-api.integration.mjs"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
     "@metamask/connect-solana": "^2.1.1",
     "@solana/wallet-adapter-backpack": "^0.1.14",
     "@solana/wallet-adapter-base": "^0.9.28",

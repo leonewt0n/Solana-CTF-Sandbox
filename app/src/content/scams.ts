@@ -1,5 +1,4 @@
 import type { Mission, Step } from "./missions";
-import { LIVE_SCAMS } from "./liveScams";
 
 export type PracticeChoice = { id: string; label: string; feedback: string };
 export type ScamRequest = {
@@ -20,6 +19,7 @@ export type ScamScenario = {
   takeaway: string;
   request: ScamRequest;
   comparison?: ScamRequest;
+  inspection?: { question: string; answer: string };
   question: string;
   answers: [string, string, string];
   correct: number;
@@ -57,7 +57,7 @@ const proceed = (feedback: string): PracticeChoice => ({
 export const SCAM_SCENARIOS: ScamScenario[] = [
   {
     id: "scam.airdrop",
-    title: "An unexpected token is not an invitation.",
+    title: "An asset notice",
     objective: "Separate receiving spam from following its instructions.",
     setup:
       "An unsolicited collectible appears in a fictional wallet with a reward notice attached.",
@@ -98,7 +98,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.support",
-    title: "A helpful stranger asks for control.",
+    title: "A support conversation",
     objective: "Recognize impersonation even after a convincing conversation.",
     setup:
       "A supposed moderator notices a question in chat and moves the conversation into a private message.",
@@ -140,7 +140,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.approval",
-    title: "A free badge requests a transfer.",
+    title: "A badge request",
     objective: "Compare a promotion with the actual transaction effects.",
     setup:
       "A fictional badge page says that claiming is free. Its proposed action tells a different story.",
@@ -182,7 +182,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.message",
-    title: "Read the message, not just the Sign button.",
+    title: "A sign-in request",
     objective: "Distinguish an expected login from an unrelated authorization.",
     setup:
       "You asked to sign in to a fictional learning site. The message instead names another site and another purpose.",
@@ -254,7 +254,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.blind",
-    title: "An unreadable request is a reason to pause.",
+    title: "A transaction preview",
     objective:
       "Avoid treating an undecoded payload as a routine security check.",
     setup:
@@ -297,7 +297,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.delegate",
-    title: "A permission can matter without an immediate transfer.",
+    title: "A subscription request",
     objective: "Recognize an unexpected token delegate and spending limit.",
     setup:
       "A fictional newsletter claims that it needs a token permission to remember your subscription.",
@@ -344,7 +344,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.authority",
-    title: "An account upgrade changes its controller.",
+    title: "An account update",
     objective: "Distinguish a token-account authority change from a login.",
     setup:
       "A fictional account-upgrade page says it will improve security. The decoded action changes a token account's owner authority.",
@@ -390,7 +390,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.address",
-    title: "The address looks familiar at both ends.",
+    title: "A recent recipient",
     objective:
       "Compare the full recipient instead of trusting transaction history.",
     setup:
@@ -436,7 +436,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.phishing",
-    title: "The logo is right. The destination is wrong.",
+    title: "A website notice",
     objective:
       "Inspect the actual hostname and reject requests for login codes or recovery secrets.",
     setup:
@@ -479,7 +479,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.installer",
-    title: "A troubleshooting step installs a stranger's helper.",
+    title: "A software update",
     objective:
       "Recognize malicious downloads, fake updates, and remote-access pressure.",
     setup:
@@ -528,7 +528,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.returns",
-    title: "Pay first to unlock a guaranteed reward.",
+    title: "A payout offer",
     objective:
       "Recognize advance-fee pressure in giveaways, investment pitches, and task jobs.",
     setup:
@@ -571,7 +571,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.token",
-    title: "A famous ticker is attached to a different token.",
+    title: "A token listing",
     objective:
       "Separate token identity from branding and promises of liquidity.",
     setup:
@@ -621,7 +621,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.recovery",
-    title: "The recovery expert asks for one more payment.",
+    title: "A recovery offer",
     objective: "Avoid a second scam after an alarming incident.",
     setup:
       "A fictional recovery agent contacts someone who posted about a loss. They promise to reverse it for an upfront fee.",
@@ -663,7 +663,7 @@ export const SCAM_SCENARIOS: ScamScenario[] = [
   },
   {
     id: "scam.response",
-    title: "Choose a response that matches the exposure.",
+    title: "An incident response",
     objective:
       "Distinguish a connection, an on-chain permission, and exposed recovery secrets.",
     setup:
@@ -835,42 +835,314 @@ export const SCAM_LAB_MISSION: Mission = {
   description: "Inspect messages, permissions, and recovery decisions",
   icon: "shield",
   minutes: 20,
-  steps: EXTRA_SCAM_SCENARIOS.map(
-    (scenario): Step => ({
-      id: scenario.id,
-      title: scenario.title,
-      objective: scenario.objective,
-      why: scenario.setup,
-      explanation: [scenario.takeaway],
-      instructions: [
-        "Open the simulated request, inspect its details, and choose a response.",
-        "Use the feedback and clues, then answer the learning check.",
-      ],
-      expected:
-        "You can explain the risky permission or misleading claim without opening a real wallet request.",
-      safety: LIVE_SCAMS[scenario.id]
-        ? "Preview mode never requests wallet actions. Optional Real wallet practice is different: it requests a real training message signature or a disclosed, bounded Devnet SOL transfer. Never share recovery words or private keys."
-        : "Training only. These buttons never request wallet signatures, submit transactions, install software, or collect recovery secrets.",
-      terms: glossary[scenario.id] ?? [],
-      troubleshooting: LIVE_SCAMS[scenario.id]
-        ? "You can retry the preview and learning check without a wallet. Live wallet practice is optional. If a live transfer has a saved signature, check its receipt before trying another payment."
-        : "You can retry the simulation and the learning check. Nothing in the scenario is sent to a wallet or network.",
-      action: "quiz",
-      verification: "understanding",
-      scamScenario: scenario.id,
-      source: scenario.source,
-      quiz: {
-        question: scenario.question,
-        options: scenario.answers.map((title, index) => ({
-          id: String(index),
-          title,
-          feedback:
-            index === scenario.correct
-              ? scenario.takeaway
-              : "Revisit the request details and clues. " + scenario.takeaway,
-        })),
-        correct: String(scenario.correct),
-      },
-    }),
-  ),
+  steps: EXTRA_SCAM_SCENARIOS.map((scenario): Step => ({
+    id: scenario.id,
+    title: scenario.title,
+    objective: scenario.objective,
+    why: scenario.setup,
+    explanation: [scenario.takeaway],
+    instructions: [
+      "Open the simulated request, inspect its details, and choose a response.",
+      "Use the feedback and clues, then answer the learning check.",
+    ],
+    expected:
+      "You can explain the risky permission or misleading claim without opening a real wallet request.",
+    safety:
+      "Training only. No wallet signatures, transactions, software installation, or secret collection.",
+    terms: glossary[scenario.id] ?? [],
+    troubleshooting:
+      "You can retry the simulation and its evidence check without a wallet.",
+    action: "quiz",
+    verification: "understanding",
+    scamScenario: scenario.id,
+    source: scenario.source,
+    quiz: {
+      question: scenario.question,
+      options: scenario.answers.map((title, index) => ({
+        id: String(index),
+        title,
+        feedback:
+          index === scenario.correct
+            ? scenario.takeaway
+            : "Revisit the request details and clues. " + scenario.takeaway,
+      })),
+      correct: String(scenario.correct),
+    },
+  })),
 };
+
+const legitimateFields: Record<string, [string, string][]> = {
+  "scam.airdrop": [
+    ["Requested action", "View the asset in the wallet's own list"],
+    ["Requested secrets", "None"],
+    ["External claim link", "None"],
+  ],
+  "scam.support": [
+    ["Channel", "Official help page opened independently"],
+    ["Requested action", "Read troubleshooting instructions"],
+    ["Requested secrets or remote control", "None"],
+  ],
+  "scam.approval": [
+    ["Requested by you", "Yes, send test SOL to your second account"],
+    ["Instruction", "Transfer 0.001 Devnet SOL plus network fee"],
+    ["Recipient", "Your independently verified Wallet B"],
+  ],
+  "scam.blind": [
+    [
+      "Instruction",
+      "Transfer 0.001 Devnet SOL to your verified second account",
+    ],
+    ["Simulation", "Successful; decoded action matches your intent"],
+  ],
+  "scam.delegate": [
+    ["Requested by you", "Yes, a limited trading allowance"],
+    ["Permission", "Approve delegate for this token account only"],
+    ["Allowance", "One fictional token to your verified delegate"],
+  ],
+  "scam.authority": [
+    [
+      "Requested by you",
+      "Yes, move this token account's control to your verified new account",
+    ],
+    ["Instruction", "SetAuthority"],
+    ["New authority", "Your independently verified new account"],
+  ],
+  "scam.address": [
+    ["Trusted destination", "TRAINING-A7K4-CORRECT-MIDDLE-LM2Q"],
+    ["Proposed destination", "TRAINING-A7K4-CORRECT-MIDDLE-LM2Q"],
+  ],
+  "scam.phishing": [
+    [
+      "Actual hostname",
+      "Official wallet website opened from a verified bookmark",
+    ],
+    ["Requested information", "None; read public help instructions"],
+  ],
+  "scam.installer": [
+    ["Publisher", "Verified through the wallet's official download page"],
+    ["Requested installation", "The wallet extension you intended to install"],
+    ["Security warnings to disable", "None"],
+  ],
+  "scam.returns": [
+    ["Requested by you", "Yes, a purchase from a verified merchant"],
+    ["Payment", "Agreed price to an independently verified recipient"],
+    ["Promised investment return", "None"],
+  ],
+  "scam.token": [
+    [
+      "Mint address",
+      "Full address matches independently verified issuer source",
+    ],
+    ["Claim", "Identity checked; future liquidity and price remain uncertain"],
+  ],
+  "scam.recovery": [
+    ["Channel", "Wallet's official incident-response documentation"],
+    ["Requested secrets or recovery payment", "None"],
+  ],
+  "scam.response": [
+    [
+      "Action",
+      "Disconnect site and separately inspect on-chain permissions through trusted controls",
+    ],
+    ["Requested secrets", "None"],
+  ],
+};
+for (const scenario of SCAM_SCENARIOS) {
+  const fields = legitimateFields[scenario.id];
+  if (fields && (!scenario.comparison || scenario.id === "scam.response"))
+    scenario.comparison = {
+      label: "Comparison request",
+      kind: scenario.request.kind,
+      origin: "Independently verified source",
+      claim: "You initiated the action described below.",
+      fields,
+      clues: [
+        "The scope and effect match the stated action you initiated. Verify the source independently.",
+      ],
+      choices: [
+        proceed(
+          "The described request matches the action you initiated and the verified scope.",
+        ),
+        reject(
+          "You may decline. In this comparison, proceeding is supported by the stated evidence.",
+        ),
+      ],
+      recommended: "proceed",
+    };
+  scenario.setup = `Review this fictional ${scenario.request.kind.toLowerCase()}. Compare its origin, purpose and requested effects before deciding.`;
+  scenario.request.label = "Request A";
+  if (scenario.comparison) scenario.comparison.label = "Request B";
+}
+export const FINAL_SCENARIOS: ScamScenario[] = [
+  {
+    id: "final.legitimate",
+    title: "Request review 1",
+    objective: "Assess a new request.",
+    setup: "You opened notes.example yourself and asked to sign in.",
+    takeaway: "An expected, scoped login can be reasonable to approve.",
+    request: {
+      label: "Request",
+      kind: "Message",
+      origin: "notes.example",
+      claim: "Create a login session",
+      fields: [
+        [
+          "Domain and purpose",
+          "notes.example; create only the session you requested",
+        ],
+        [
+          "Nonce and expiry",
+          "One-use random challenge; expires in five minutes",
+        ],
+        ["Asset permissions", "None"],
+      ],
+      clues: ["The domain, purpose, scope and initiation match."],
+      choices: [
+        proceed("This scoped request matches your intended login."),
+        reject("Declining is allowed; the evidence here supports proceeding."),
+      ],
+      recommended: "proceed",
+    },
+    question: "",
+    answers: ["", "", ""],
+    correct: 0,
+    source: safety,
+  },
+  {
+    id: "final.malicious",
+    title: "Request review 2",
+    objective: "Assess a new request.",
+    setup:
+      "You requested a public event schedule. A calendar page opens a wallet preview.",
+    takeaway: "The requested permission must match the intended action.",
+    request: {
+      label: "Request",
+      kind: "Permission",
+      origin: "events-calendar.example",
+      claim: "Read the public schedule",
+      fields: [
+        [
+          "Instruction and scope",
+          "Approve an unknown delegate to spend 500 tokens",
+        ],
+        ["Your intended action", "Read public event times"],
+      ],
+      clues: [
+        "Reading a public schedule does not explain a spending allowance.",
+      ],
+      choices: [
+        reject("Reject the unrelated spending authority."),
+        proceed("This grants authority unrelated to reading a schedule."),
+      ],
+      recommended: "stop",
+    },
+    question: "",
+    answers: ["", "", ""],
+    correct: 0,
+    source: safety,
+  },
+  {
+    id: "final.unclear",
+    title: "Request review 3",
+    objective: "Assess a new receipt.",
+    setup:
+      "A site displays a transaction identifier after your request. It invites you to send again.",
+    takeaway:
+      "A transaction identifier alone does not establish successful execution or safe retry.",
+    request: {
+      label: "Request",
+      kind: "Receipt",
+      origin: "Independent RPC lookup",
+      claim: "Check before retrying",
+      fields: [
+        ["Historical signature status", "Temporarily unavailable"],
+        ["Execution receipt", "Not yet available"],
+        ["Blockhash lifetime", "Expiry not established"],
+      ],
+      clues: [
+        "Outcome is unresolved. Investigate without signing another transaction.",
+      ],
+      choices: [
+        proceed("Sending again can duplicate an unresolved action."),
+        {
+          id: "investigate",
+          label: "Investigate further",
+          feedback:
+            "Look up history and the execution receipt; do not send again yet.",
+        },
+        reject(
+          "Do not infer a failed or malicious transaction from missing data.",
+        ),
+      ],
+      recommended: "investigate",
+    },
+    question: "",
+    answers: ["", "", ""],
+    correct: 0,
+    source: safety,
+  },
+];
+export const ALL_SCENARIOS = [...SCAM_SCENARIOS, ...FINAL_SCENARIOS];
+export type Assessment = {
+  variant: "request" | "comparison";
+  inspection: string;
+  decision: string;
+  evidence: string;
+};
+export function assessmentRequest(
+  scenarioId: string,
+  variant: Assessment["variant"],
+) {
+  const scenario = ALL_SCENARIOS.find((s) => s.id === scenarioId);
+  return variant === "comparison" ? scenario?.comparison : scenario?.request;
+}
+/** Require retrieval of relevant request evidence, not merely opening a panel. */
+export function inspectionTask(
+  scenarioId: string,
+  variant: Assessment["variant"],
+) {
+  const request = assessmentRequest(scenarioId, variant);
+  if (!request) return null;
+  if (scenarioId === "scam.address")
+    return {
+      question:
+        "Compare both complete destinations. Enter trusted destination | proposed destination, including every character.",
+      answer: `${request.fields[0][1]} | ${request.fields[1][1]}`,
+    };
+  if (scenarioId === "scam.message" || scenarioId === "final.legitimate") {
+    const purpose = request.fields.find(([label]) => /purpose/i.test(label))!;
+    return {
+      question:
+        "Inspect the request origin and message purpose. Enter origin | complete purpose value.",
+      answer: `${request.origin} | ${purpose[1]}`,
+    };
+  }
+  const field =
+    request.fields.find(([label]) =>
+      /requested (information|access|installation)|permission|instruction|domain and purpose|message purpose|historical signature|mint address|actual hostname/i.test(
+        label,
+      ),
+    ) ?? request.fields[0];
+  return {
+    question: `Inspect ${field[0].toLowerCase()}. Copy its complete value from the request.`,
+    answer: field[1],
+  };
+}
+export function validAssessment(scenarioId: string, result: Assessment) {
+  if (
+    !result ||
+    !["request", "comparison"].includes(result.variant) ||
+    typeof result.inspection !== "string" ||
+    typeof result.evidence !== "string"
+  )
+    return false;
+  const request = assessmentRequest(scenarioId, result.variant);
+  const task = inspectionTask(scenarioId, result.variant);
+  return (
+    !!request &&
+    !!task &&
+    result.inspection.trim() === task.answer &&
+    result.decision === request.recommended &&
+    result.evidence === task.answer
+  );
+}

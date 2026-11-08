@@ -6,244 +6,162 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { PublicKey } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import { ScamLesson } from "../src/components/ScamLesson";
+import { WalletTransaction } from "../src/components/WalletTransaction";
 const mocks = vi.hoisted(() => ({
   wallet: {
     connected: true,
-    publicKey: null as PublicKey | null,
+    publicKey: null as unknown,
     signTransaction: vi.fn(),
-    signMessage: vi.fn(),
   },
-  useWallet: vi.fn(),
   prepare: vi.fn(),
   submit: vi.fn(),
-  refresh: vi.fn(),
-  message: vi.fn(),
   read: vi.fn(),
-  unresolved: vi.fn(),
+  pending: vi.fn(),
+  reconcile: vi.fn(),
+  useWallet: vi.fn(),
 }));
 vi.mock("@solana/wallet-adapter-react", () => ({
   useWallet: () => {
     mocks.useWallet();
     return mocks.wallet;
   },
-  useConnection: () => ({
-    connection: {
-      getGenesisHash: vi
-        .fn()
-        .mockResolvedValue("EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"),
-    },
-  }),
+  useConnection: () => ({ connection: { rpcEndpoint: "devnet" } }),
 }));
 vi.mock("@solana/wallet-adapter-react-ui", () => ({
-  WalletMultiButton: () => <button>Connect practice wallet</button>,
+  WalletMultiButton: () => <button>Connect wallet</button>,
 }));
-vi.mock("../src/lib/liveScam", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/lib/liveScam")>();
-  return {
-    ...actual,
-    prepareTrainingTransfer: (...a: unknown[]) => mocks.prepare(...a),
-    submitTrainingTransfer: (...a: unknown[]) => mocks.submit(...a),
-    refreshTrainingAttempt: (...a: unknown[]) => mocks.refresh(...a),
-    readAttempt: (...a: unknown[]) => mocks.read(...a),
-    unresolvedAttempt: (...a: unknown[]) => mocks.unresolved(...a),
-    signTrainingMessage: (...a: unknown[]) => mocks.message(...a),
-    withTrainingLock: (_owner: string, task: () => unknown) => task(),
-  };
-});
+vi.mock("../src/lib/transactionLifecycle", () => ({
+  prepareRequest: (...a: unknown[]) => mocks.prepare(...a),
+  submitRequest: (...a: unknown[]) => mocks.submit(...a),
+  reconcileRequest: (...a: unknown[]) => mocks.reconcile(...a),
+  readTransactionAttempt: (...a: unknown[]) => mocks.read(...a),
+  pendingTransaction: (...a: unknown[]) => mocks.pending(...a),
+  withTransactionLock: (_owner: string, task: () => unknown) => task(),
+}));
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
   mocks.wallet = {
     connected: true,
-    publicKey: new PublicKey("11111111111111111111111111111111"),
+    publicKey: Keypair.generate().publicKey,
     signTransaction: vi.fn(),
-    signMessage: vi.fn(),
   };
   mocks.read.mockReturnValue(null);
-  mocks.unresolved.mockReturnValue(null);
-  mocks.prepare.mockImplementation(async (_c, key, scenario) => ({
-    owner: key.toBase58(),
-    scenario,
+  mocks.pending.mockReturnValue(null);
+  mocks.prepare.mockResolvedValue({
+    owner: "A",
+    network: "devnet",
+    action: "transfer",
+    recipient: "B",
     feeLamports: 5000,
-  }));
-  mocks.message.mockResolvedValue(undefined);
-});
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-});
-function enable(scenario = "scam.airdrop") {
-  const view = render(<ScamLesson scenarioId={scenario} />);
-  fireEvent.click(screen.getByRole("button", { name: "Real wallet practice" }));
-  return view;
-}
-async function preview() {
-  fireEvent.click(screen.getByRole("checkbox"));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Prepare and review request" }),
-  );
-  await screen.findByRole("heading", {
-    name: "Payment review · simulation passed",
+    blockhash: "hash",
+    lastValidBlockHeight: 100,
+    message: "exact reviewed message",
   });
-}
-it("starts with the isolated preview and does not access a wallet until live mode is selected", () => {
-  render(<ScamLesson scenarioId="scam.airdrop" />);
-  expect(screen.getByText("TRAINING SIMULATION")).toBeTruthy();
+});
+afterEach(cleanup);
+it("never exposes live launch controls or accesses a wallet in threat lessons", () => {
+  for (const id of ["scam.airdrop", "scam.message", "scam.approval"]) {
+    const view = render(<ScamLesson scenarioId={id} />);
+    expect(
+      screen.queryByRole("button", { name: "Real wallet practice" }),
+    ).toBeNull();
+    view.unmount();
+  }
   expect(mocks.useWallet).not.toHaveBeenCalled();
   expect(mocks.prepare).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Real wallet practice" }));
+});
+async function prepareTransfer() {
+  fireEvent.change(screen.getByLabelText("Wallet B public address"), {
+    target: { value: Keypair.generate().publicKey.toBase58() },
+  });
+  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Prepare and simulate request" }),
+  );
+  await screen.findByText("Review this exact request · simulation passed");
+}
+it("requires full-address review and does not sign during preparation", async () => {
+  render(<WalletTransaction action="transfer" onReceipt={vi.fn()} />);
   expect(
     (
       screen.getByRole("button", {
-        name: "Prepare and review request",
+        name: "Prepare and simulate request",
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
-  expect(mocks.prepare).not.toHaveBeenCalled();
+  await prepareTransfer();
   expect(mocks.submit).not.toHaveBeenCalled();
+  expect(screen.getByText("exact reviewed message")).toBeTruthy();
 });
-it("requires a fresh acknowledgement after the connected account changes", async () => {
-  const view = enable();
-  await preview();
-  expect(
-    screen.getByRole("button", { name: "Review the claim in my wallet" }),
-  ).toBeTruthy();
-  mocks.wallet = {
-    ...mocks.wallet,
-    publicKey: new PublicKey("Vote111111111111111111111111111111111111111"),
-  };
-  view.rerender(<ScamLesson scenarioId="scam.airdrop" />);
+it("recipient changes clear the prepared review", async () => {
+  render(<WalletTransaction action="transfer" onReceipt={vi.fn()} />);
+  await prepareTransfer();
+  fireEvent.change(screen.getByLabelText("Wallet B public address"), {
+    target: { value: Keypair.generate().publicKey.toBase58() },
+  });
+  expect(screen.queryByRole("button", { name: "Review in wallet" })).toBeNull();
   expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(
     false,
   );
-  expect(
-    screen.queryByRole("heading", {
-      name: "Payment review · simulation passed",
-    }),
-  ).toBeNull();
-  expect(mocks.submit).not.toHaveBeenCalled();
 });
-it("reports wallet rejection without marking progress or inventing a loss", async () => {
-  localStorage.setItem("solana-learn:v3:anon", "unchanged");
-  mocks.submit.mockRejectedValue(
-    Object.assign(new Error("User rejected"), { code: 4001 }),
+it("owner changes clear preview and full-address acknowledgement", async () => {
+  const view = render(
+    <WalletTransaction action="transfer" onReceipt={vi.fn()} />,
   );
-  enable();
-  await preview();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Review the claim in my wallet" }),
+  await prepareTransfer();
+  mocks.wallet.publicKey = Keypair.generate().publicKey;
+  view.rerender(<WalletTransaction action="transfer" onReceipt={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "Review in wallet" })).toBeNull();
+  expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(
+    false,
   );
-  await screen.findByText(/Request declined in the wallet/);
-  expect(screen.queryByText(/Confirmed: the practice account sent/)).toBeNull();
-  expect(localStorage.getItem("solana-learn:v3:anon")).toBe("unchanged");
 });
-it("blocks duplicate clicks and switching modes while a wallet request is pending", async () => {
-  let finish!: (v: unknown) => void;
-  mocks.submit.mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-  );
-  mocks.refresh.mockImplementation(async (_connection, a) => a);
-  enable();
-  await preview();
-  const request = screen.getByRole("button", {
-    name: "Review the claim in my wallet",
-  });
-  fireEvent.click(request);
-  fireEvent.click(request);
-  await waitFor(() => expect(mocks.submit).toHaveBeenCalledTimes(1));
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Preview",
-        exact: true,
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
-  finish({
-    owner: mocks.wallet.publicKey!.toBase58(),
-    scenario: "scam.airdrop",
-    status: "pending",
-    signature: "5".repeat(88),
-  });
-  await screen.findByText(/successful execution has not been verified/);
-  expect(
-    screen.queryByRole("button", { name: "Review the claim in my wallet" }),
-  ).toBeNull();
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Prepare and review request",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+it("wallet rejection leaves course progress incomplete and permits new review", async () => {
+  const done = vi.fn();
+  mocks.submit.mockRejectedValue(new Error("User rejected"));
+  render(<WalletTransaction action="transfer" onReceipt={done} />);
+  await prepareTransfer();
+  fireEvent.click(screen.getByRole("button", { name: "Review in wallet" }));
+  await screen.findByText("User rejected");
+  expect(done).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Review in wallet" })).toBeNull();
 });
-it("shows unsupported signing methods without a fallback request", () => {
-  mocks.wallet.signTransaction = undefined as never;
-  enable();
-  fireEvent.click(screen.getByRole("checkbox"));
-  expect(screen.getByRole("alert").textContent).toContain("does not support");
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "Prepare and review request",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
-  expect(mocks.submit).not.toHaveBeenCalled();
-});
-it("leaves secret-collection and permission scenarios as isolated simulations", () => {
-  render(<ScamLesson scenarioId="scam.delegate" />);
-  expect(
-    screen.queryByRole("button", { name: "Real wallet practice" }),
-  ).toBeNull();
-  expect(mocks.useWallet).not.toHaveBeenCalled();
-});
-it("reviews the training message before signing and never treats it as a transfer", async () => {
-  enable("scam.message");
-  fireEvent.click(screen.getByRole("checkbox"));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Prepare and review request" }),
-  );
-  await screen.findByLabelText("Exact training message");
-  expect(screen.getByLabelText("Exact training message").textContent).toContain(
-    "TRAINING ONLY",
-  );
-  fireEvent.click(
-    screen.getByRole("button", {
-      name: "Review the training message in my wallet",
-    }),
-  );
-  await screen.findByText(/Training message signature verified/);
-  expect(mocks.message).toHaveBeenCalledTimes(1);
-  expect(mocks.submit).not.toHaveBeenCalled();
-  expect(screen.queryByText(/Confirmed: the practice account sent/)).toBeNull();
-});
-it("restores a pending receipt without signing and explains a failed result separately", async () => {
+it("restores and reconciles a pending receipt without signing", async () => {
   const a = {
-    owner: mocks.wallet.publicKey!.toBase58(),
-    scenario: "scam.blind",
-    status: "pending",
+    action: "transfer",
     signature: "5".repeat(88),
+    status: "pending",
   };
-  mocks.unresolved.mockReturnValue(a);
-  mocks.refresh.mockResolvedValue({ ...a, status: "failed" });
-  enable();
-  fireEvent.click(screen.getByRole("checkbox"));
+  mocks.pending.mockReturnValue(a);
+  mocks.reconcile.mockResolvedValue({
+    ...a,
+    status: "confirmed",
+    receipt: { fee: 5000, senderChange: -1005000, recipientChange: 1000000 },
+  });
+  const done = vi.fn();
+  render(<WalletTransaction action="transfer" onReceipt={done} />);
+  await waitFor(() =>
+    expect(done).toHaveBeenCalledWith("transfer", a.signature),
+  );
+  expect(mocks.submit).not.toHaveBeenCalled();
+  expect(screen.getByText(/Recorded sender change/).textContent).toContain(
+    "-1005000",
+  );
+});
+it("unresolved outcomes prevent a second transaction", async () => {
+  const a = { action: "program", signature: "5".repeat(88), status: "pending" };
+  mocks.pending.mockReturnValue(a);
+  mocks.reconcile.mockResolvedValue(a);
+  render(<WalletTransaction action="program" onReceipt={vi.fn()} />);
+  await screen.findByText(/Outcome unresolved/);
   expect(
     (
       screen.getByRole("button", {
-        name: "Prepare and review request",
+        name: "Prepare and simulate request",
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: "Check saved receipt" }));
-  await screen.findByText(/Execution failed: the transfer did not take effect/);
-  expect(mocks.submit).not.toHaveBeenCalled();
-  expect(mocks.prepare).not.toHaveBeenCalled();
-  expect(screen.queryByText(/Confirmed: the practice account sent/)).toBeNull();
 });

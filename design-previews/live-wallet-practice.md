@@ -1,3 +1,5 @@
+> Historical design record. The audit-fix revision removes transfer launch controls from threat scenarios. Current behavior and coverage are documented in [verification](../docs/verification.md) and the [README](../README.md).
+
 # Real wallet scam exercises
 
 Five course lessons offer a **Preview / Real wallet practice** switch. Preview remains the default and retains the existing wallet-independent simulator. The separate free-practice page remains preview-only. A live exercise never awards course completion; the existing learning checks remain authoritative.

@@ -46,7 +46,7 @@ export function PlatformOverview({
           <h3>Follow a real Solana action</h3>
           <p>
             Prepare a practice wallet, use free Devnet test SOL, call the
-            teaching program, and inspect its public exercise code in Explorer
+            teaching program, and inspect its public practice code in Explorer
             logs.
           </p>
         </div>
@@ -55,8 +55,8 @@ export function PlatformOverview({
           <h3>Rehearse the risky moments</h3>
           <p>
             Compare messages, recipients, token permissions, and recovery
-            choices in fictional previews. Selected course lessons also offer
-            opt-in real wallet practice with bounded Devnet actions.
+            choices in fictional previews. Transfer practice is separate and
+            uses two learner-controlled accounts on Devnet.
           </p>
         </div>
       </div>

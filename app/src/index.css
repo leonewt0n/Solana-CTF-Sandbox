@@ -49,7 +49,8 @@ button {
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
@@ -3860,3 +3861,16 @@ h1 {
     font-size: 11px;
   }
 }
+
+/* Evidence controls share the existing restrained visual language. */
+.scenario-picker input, .scenario-picker select {
+  width: 100%; max-width: 100%; min-width: 0;
+  padding: .875rem; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface-raised); color: var(--ink); font: inherit;
+}
+.transaction-message, .live-review code, .simulation-fields dd {
+  overflow-wrap: anywhere; white-space: normal;
+}
+.simulation-choices .button { flex: 1; }
+.transaction-preview { min-width: 0; }
+.transaction-preview > button, .receipt > button { margin: .5rem .5rem .5rem 0; }

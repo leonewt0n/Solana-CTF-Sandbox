@@ -15,7 +15,7 @@ import {
   setCookie,
 } from "./shared";
 
-const VERSION = 3;
+const VERSION = 4;
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
 export type Learner = { id: string; email: string; wallets: string[] };
@@ -101,6 +101,7 @@ export async function syncIntroduction(
     const merged = {
       ...mergeIntroductoryProgress(previous, portable),
       stepIndex: portable.stepIndex,
+      lessonId: portable.lessonId,
     };
     if (row && JSON.stringify(merged) === JSON.stringify(previous)) return;
     const result = row
@@ -137,6 +138,13 @@ export async function savedProgress(env: Env, identity: ProgressIdentity) {
   )
     .bind(identity.id, VERSION)
     .first<{ progress: string; revision: number }>();
+  const legacy = !row
+    ? await env.DB.prepare(
+        `SELECT progress FROM ${table} WHERE ${key} = ? AND course_version = 3`,
+      )
+        .bind(identity.id)
+        .first<{ progress: string }>()
+    : null;
   const intro =
     !row && identity.scope === "wallet" && identity.learner
       ? await env.DB.prepare(
@@ -150,10 +158,18 @@ export async function savedProgress(env: Env, identity: ProgressIdentity) {
     scope: identity.scope,
     version: VERSION,
     progress: row
-      ? (JSON.parse(row.progress) as Progress)
-      : intro
-        ? introductoryProgress(JSON.parse(intro.progress) as Progress)
-        : null,
+      ? normalizeProgress(JSON.parse(row.progress))
+      : legacy
+        ? identity.scope === "learner"
+          ? introductoryProgress(
+              normalizeProgress(JSON.parse(legacy.progress)) ?? emptyProgress(),
+            )
+          : normalizeProgress(JSON.parse(legacy.progress))
+        : intro
+          ? introductoryProgress(
+              normalizeProgress(JSON.parse(intro.progress)) ?? emptyProgress(),
+            )
+          : null,
     revision: row?.revision ?? 0,
   };
 }
@@ -423,12 +439,17 @@ export async function handleAccount(
     if (!/^[A-F0-9]{20}$/.test(code))
       throw new ApiError(400, "Invalid or expired transfer code");
     const record = await env.DB.prepare(
-      "DELETE FROM progress_transfers WHERE code_hash = ? AND expires_at > ? AND course_version = ? RETURNING progress",
+      "DELETE FROM progress_transfers WHERE code_hash = ? AND expires_at > ? AND course_version IN (3, 4) RETURNING progress",
     )
-      .bind(await hash(code), now, VERSION)
+      .bind(await hash(code), now)
       .first<{ progress: string }>();
     if (!record) throw new ApiError(400, "Invalid or expired transfer code");
-    return json({ version: VERSION, progress: JSON.parse(record.progress) });
+    return json({
+      version: VERSION,
+      progress: introductoryProgress(
+        normalizeProgress(JSON.parse(record.progress)) ?? emptyProgress(),
+      ),
+    });
   }
   return null;
 }

@@ -914,7 +914,7 @@ export const MISSIONS: Mission[] = [
         id: "7.1",
         title: "You can explain your next move.",
         objective: "A learning record, not a promise that every app is safe.",
-        why: "You have explored why shared networks exist, compared Solana with other networks, practiced a Devnet workflow, and inspected simulated scams. The useful habit is to explain a request before approving it.",
+        why: "The course connects shared-network concepts, a Devnet workflow, explorer evidence, and simulated scams. Review those ideas here or jump to any lesson. The useful habit is to explain a request before approving it.",
         instructions: [
           "Explain when a shared public ledger helps—and when an ordinary app is a better fit.",
           "Identify the network, fee asset, signer, and intended effect before signing.",

@@ -1,5 +1,7 @@
 import {
   introductoryProgress,
+  mergeIntroductoryProgress,
+  emptyProgress,
   normalizeProgress,
   type Progress,
 } from "../src/engine/progress";
@@ -87,13 +89,43 @@ export async function syncIntroduction(
   progress: Progress,
 ) {
   const portable = introductoryProgress(progress);
-  await env.DB.prepare(
-    `INSERT INTO learner_progress (learner_id, course_version, progress, revision, updated_at) VALUES (?, ?, ?, 1, ?)
-    ON CONFLICT(learner_id, course_version) DO UPDATE SET progress = excluded.progress, revision = learner_progress.revision + 1, updated_at = excluded.updated_at
-    WHERE json_array_length(json_extract(excluded.progress, '$.completed')) > json_array_length(json_extract(learner_progress.progress, '$.completed'))`,
-  )
-    .bind(learnerId, VERSION, JSON.stringify(portable), Date.now())
-    .run();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const row = await env.DB.prepare(
+      "SELECT progress, revision FROM learner_progress WHERE learner_id = ? AND course_version = ?",
+    )
+      .bind(learnerId, VERSION)
+      .first<{ progress: string; revision: number }>();
+    const previous = row
+      ? (normalizeProgress(JSON.parse(row.progress)) ?? emptyProgress())
+      : emptyProgress();
+    const merged = {
+      ...mergeIntroductoryProgress(previous, portable),
+      stepIndex: portable.stepIndex,
+    };
+    if (row && JSON.stringify(merged) === JSON.stringify(previous)) return;
+    const result = row
+      ? await env.DB.prepare(
+          "UPDATE learner_progress SET progress = ?, revision = revision + 1, updated_at = ? WHERE learner_id = ? AND course_version = ? AND revision = ? RETURNING revision",
+        )
+          .bind(
+            JSON.stringify(merged),
+            Date.now(),
+            learnerId,
+            VERSION,
+            row.revision,
+          )
+          .first()
+      : await env.DB.prepare(
+          "INSERT INTO learner_progress (learner_id, course_version, progress, revision, updated_at) VALUES (?, ?, ?, 1, ?) ON CONFLICT(learner_id, course_version) DO NOTHING RETURNING revision",
+        )
+          .bind(learnerId, VERSION, JSON.stringify(merged), Date.now())
+          .first();
+    if (result) return;
+  }
+  throw new ApiError(
+    503,
+    "Introductory progress changed concurrently. Please retry syncing",
+  );
 }
 export async function savedProgress(env: Env, identity: ProgressIdentity) {
   // Table and key names are fixed choices, never request-controlled SQL identifiers.

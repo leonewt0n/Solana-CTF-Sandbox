@@ -94,13 +94,7 @@ export function useMissionEngine(owner: string) {
   }, [connection, step, wallet.publicKey, pass]);
 
   function navigate(index: number) {
-    if (
-      busy.current ||
-      index < 0 ||
-      index >= STEPS.length ||
-      index > progress.completed.length
-    )
-      return;
+    if (busy.current || index < 0 || index >= STEPS.length) return;
     operation.current++;
     setProgress((p) => ({ ...p, stepIndex: index }));
     setStatus("idle");
@@ -163,7 +157,7 @@ export function useMissionEngine(owner: string) {
     failReason,
     passed,
     storageFailed,
-    canGoNext: passed || step.verification === "read",
+    canGoNext: progress.stepIndex < STEPS.length - 1,
     checkAnswer: (optionId: string) => {
       if (step.action !== "quiz" || !step.quiz || busy.current) return false;
       const correct = optionId === step.quiz.correct;
@@ -171,19 +165,15 @@ export function useMissionEngine(owner: string) {
       return correct;
     },
     confirmManual: () => {
-      if (step.verification === "self") pass(step.id);
+      if (
+        step.verification === "self" &&
+        (step.action !== "explorer" || progress.signature)
+      )
+        pass(step.id);
     },
     runCast: () => run("transaction"),
     runFlag: (value: string) => run("flag", value),
-    goNext: () => {
-      if (step.verification === "read") {
-        pass(step.id);
-        setProgress((p) => ({
-          ...p,
-          stepIndex: Math.min(p.stepIndex + 1, STEPS.length - 1),
-        }));
-      } else if (passed) navigate(progress.stepIndex + 1);
-    },
+    goNext: () => navigate(progress.stepIndex + 1),
     goBack: () => navigate(progress.stepIndex - 1),
     navigate,
     restart,

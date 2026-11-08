@@ -13,6 +13,7 @@ import { Glossary } from "./Glossary";
 import { Icon } from "./Icon";
 import { ScamSimulator } from "./ScamSimulator";
 import { ScamPractice } from "./ScamPractice";
+import { PlatformOverview } from "./PlatformOverview";
 import { LearnerAccess } from "./LearnerAccess";
 import {
   LearnerAccountProvider,
@@ -66,7 +67,11 @@ function CourseSession({
   const firstRender = useRef(true);
   const taskCount = engine.steps.length - 1;
   const progress = Math.round(
-    (Math.min(engine.completed.length, taskCount) / taskCount) * 100,
+    (engine.steps.filter(
+      (step) => step.action !== "summary" && engine.completed.includes(step.id),
+    ).length /
+      taskCount) *
+      100,
   );
   const completedModules = MISSIONS.filter(
     (m) =>
@@ -74,17 +79,19 @@ function CourseSession({
       (m.steps[0].action === "summary" && progress === 100),
   ).length;
   const resume = () => {
-    engine.navigate(Math.min(engine.completed.length, engine.steps.length - 1));
+    engine.navigate(engine.stepIndex);
     setView("lesson");
     setOutlineOpen(false);
   };
+  function openLesson(id: string) {
+    const index = engine.steps.findIndex((step) => step.id === id);
+    if (engine.status === "checking" || index < 0) return;
+    engine.navigate(index);
+    setView("lesson");
+    setOutlineOpen(false);
+  }
   function openModule(m: Mission) {
-    const index = engine.steps.findIndex((s) => s.id === m.steps[0].id);
-    if (index <= engine.completed.length) {
-      engine.navigate(index);
-      setView("lesson");
-      setOutlineOpen(false);
-    }
+    openLesson(m.steps[0].id);
   }
   useEffect(() => {
     if (firstRender.current) {
@@ -119,13 +126,11 @@ function CourseSession({
         </a>
         <nav className="header-tabs" aria-label="Main navigation">
           <button
-            aria-current={
-              view === "overview" || view === "lesson" ? "page" : undefined
-            }
+            aria-current={view === "overview" ? "page" : undefined}
             disabled={engine.status === "checking"}
             onClick={() => setView("overview")}
           >
-            Learn
+            Overview
           </button>
           <button
             aria-current={view === "progress" ? "page" : undefined}
@@ -242,11 +247,7 @@ function CourseSession({
               const complete =
                 mission.steps.every((s) => engine.completed.includes(s.id)) ||
                 (mission.steps[0].action === "summary" && progress === 100);
-              const target = engine.steps.findIndex(
-                (s) => s.id === mission.steps[0].id,
-              );
               const active = view === "lesson" && index === engine.missionIndex;
-              const locked = target > engine.completed.length;
               return (
                 <div
                   className={`outline-module ${active ? "active" : ""}`}
@@ -254,7 +255,7 @@ function CourseSession({
                 >
                   <button
                     className="module-button"
-                    disabled={locked || engine.status === "checking"}
+                    disabled={engine.status === "checking"}
                     aria-current={active ? "step" : undefined}
                     onClick={() => openModule(mission)}
                   >
@@ -271,12 +272,9 @@ function CourseSession({
                       <small>
                         {complete
                           ? "Completed"
-                          : locked
-                            ? "Coming up"
-                            : `${mission.steps.length} ${mission.steps.length === 1 ? "step" : "steps"}`}
+                          : `${mission.steps.length} ${mission.steps.length === 1 ? "step" : "steps"}`}
                       </small>
                     </span>
-                    {locked && <Icon name="lock" size={13} />}
                   </button>
                   {active && mission.steps.length > 1 && (
                     <div className="substeps">
@@ -287,10 +285,7 @@ function CourseSession({
                         return (
                           <button
                             key={step.id}
-                            disabled={
-                              i > engine.completed.length ||
-                              engine.status === "checking"
-                            }
+                            disabled={engine.status === "checking"}
                             aria-current={
                               i === engine.stepIndex ? "step" : undefined
                             }
@@ -379,6 +374,8 @@ function CourseSession({
               completedModules={completedModules}
               resume={resume}
               openModule={openModule}
+              openLesson={openLesson}
+              openScams={() => setView("scams")}
             />
           ) : view === "scams" ? (
             <ScamPractice heading={heading} />
@@ -414,6 +411,8 @@ function Overview({
   completedModules,
   resume,
   openModule,
+  openLesson,
+  openScams,
 }: {
   engine: MissionEngine;
   heading: HeadingRef;
@@ -421,6 +420,8 @@ function Overview({
   completedModules: number;
   resume: () => void;
   openModule: (m: Mission) => void;
+  openLesson: (id: string) => void;
+  openScams: () => void;
 }) {
   return (
     <div className="overview-content">
@@ -434,22 +435,23 @@ function Overview({
       <section className="overview-hero">
         <div>
           <h1 ref={heading} tabIndex={-1}>
-            A little less crypto confusion.
+            Understand Web3. Practice Solana. Spot the risk.
           </h1>
           <p>
-            Understand Web3, get to know Solana, and learn to use a wallet with
-            confidence. One clear idea at a time.
+            A beginner learning platform that connects clear explanations, a
+            real Devnet transaction, and safe scam simulations. Learn what an
+            action means before you approve it.
           </p>
           <div className="hero-actions">
             <button className="button button-primary" onClick={resume}>
-              {engine.completed.length
+              {engine.completed.length || engine.stepIndex > 0
                 ? "Continue learning"
                 : "Start from the beginning"}
               <Icon name="arrow" size={18} />
             </button>
             <span>
               <Icon name="clock" size={16} />
-              About 45 min · Go at your own pace
+              Every module is open · Explore at your own pace
             </span>
           </div>
         </div>
@@ -467,6 +469,7 @@ function Overview({
           </span>
         </div>
       </section>
+      <PlatformOverview openScams={openScams} openLesson={openLesson} />
       <div className="learning-benefits">
         <div>
           <span className="benefit-icon">
@@ -500,7 +503,7 @@ function Overview({
         <div className="section-heading">
           <div>
             <span className="eyebrow">THE BEGINNER PATH</span>
-            <h2 id="path-title">From “what is this?” to “I get it.”</h2>
+            <h2 id="path-title">Choose any module. Follow your curiosity.</h2>
           </div>
           <span>
             {completedModules} / {MISSIONS.length} modules
@@ -508,18 +511,22 @@ function Overview({
         </div>
         <div className="module-grid">
           {MISSIONS.map((mission, index) => {
-            const target = engine.steps.findIndex(
-              (s) => s.id === mission.steps[0].id,
-            );
             const complete =
               mission.steps.every((s) => engine.completed.includes(s.id)) ||
               (mission.steps[0].action === "summary" && progress === 100);
-            const unlocked = target <= engine.completed.length;
+            const nextIncomplete = engine.steps.find(
+              (step) =>
+                step.action !== "summary" &&
+                !engine.completed.includes(step.id),
+            );
+            const suggested = mission.steps.some(
+              (step) => step.id === nextIncomplete?.id,
+            );
             return (
               <button
                 key={mission.id}
-                className={`course-card ${unlocked && !complete ? "next-card" : ""}`}
-                disabled={!unlocked}
+                className={`course-card ${suggested && !complete ? "next-card" : ""}`}
+                disabled={engine.status === "checking"}
                 onClick={() => openModule(mission)}
               >
                 <div className={`card-symbol tone-${index % 4}`}>
@@ -541,17 +548,10 @@ function Overview({
                         <Icon name="check" size={14} />
                         Completed · Review
                       </>
-                    ) : unlocked ? (
-                      <>
-                        {target === engine.completed.length
-                          ? "Up next"
-                          : "Continue"}
-                        <Icon name="arrow" size={14} />
-                      </>
                     ) : (
                       <>
-                        <Icon name="lock" size={13} />
-                        Unlocks as you learn
+                        {suggested ? "Suggested next" : "Explore module"}
+                        <Icon name="arrow" size={14} />
                       </>
                     )}
                   </span>
@@ -564,8 +564,9 @@ function Overview({
       <div className="course-reassurance">
         <Icon name="info" size={19} />
         <p>
-          No wallet needed to begin. When you reach hands-on practice, we’ll
-          walk you through setting up a fresh one.
+          Explore every module and lesson without completing prerequisites.
+          Wallet actions still require your approval and Devnet setup. Visiting
+          a lesson does not mark it complete.
         </p>
       </div>
     </div>
@@ -718,8 +719,8 @@ function Lesson({
             </button>
             <span>
               {engine.passed
-                ? "Ready when you are."
-                : "Learn at your own pace."}
+                ? "Check complete."
+                : "Browse freely. This step stays incomplete until its check is done."}
             </span>
             {step.action !== "summary" && (
               <button
@@ -729,7 +730,9 @@ function Lesson({
               >
                 {stepIndex === engine.steps.length - 2
                   ? "Review your progress"
-                  : "Continue"}
+                  : engine.passed
+                    ? "Continue"
+                    : "Next lesson"}
                 <Icon name="arrow" size={17} />
               </button>
             )}

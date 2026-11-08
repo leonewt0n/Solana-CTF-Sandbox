@@ -339,6 +339,40 @@ try {
   check(
     "newly linked wallets inherit introductory learning even before their first wallet save",
   );
+  const independent = { stepIndex: 1, completed: [steps[1]], signature: null };
+  assert.equal(
+    (
+      await stranger.request("/api/progress", "PUT", {
+        wallet: "anon",
+        version: 3,
+        revision: 0,
+        progress: independent,
+      })
+    ).status,
+    200,
+  );
+  const independentWallet = identity();
+  assert.equal(
+    (await walletLogin(stranger, independentWallet, accountB)).status,
+    200,
+  );
+  const otherCheck = { stepIndex: 0, completed: [steps[0]], signature: null };
+  assert.equal(
+    (
+      await stranger.request("/api/progress", "PUT", {
+        wallet: independentWallet.wallet,
+        version: 3,
+        revision: 0,
+        progress: otherCheck,
+      })
+    ).status,
+    200,
+  );
+  const mergedChecks = await stranger.request("/api/progress?wallet=anon");
+  assert.deepEqual(mergedChecks.data.progress.completed, steps.slice(0, 2));
+  check(
+    "out-of-order introductory checks from a linked wallet merge without losing equally sized learner records",
+  );
   const locked = browser();
   const issued = await locked.request("/api/account/code", "POST", {
     email: "locked@example.test",

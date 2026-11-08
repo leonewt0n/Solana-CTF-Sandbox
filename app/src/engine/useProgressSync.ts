@@ -126,6 +126,7 @@ export function useProgressSync(
       ) {
         if (
           latest.current.completed.length === 0 &&
+          latest.current.stepIndex === 0 &&
           !latest.current.signature
         ) {
           restoreRef.current(saved.progress);

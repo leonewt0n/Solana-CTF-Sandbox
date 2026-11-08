@@ -236,10 +236,17 @@ export function ActionZone({ engine }: { engine: MissionEngine }) {
       )}
       {step.action === "summary" && (
         <>
-          <h2>You’ve completed the walkthrough.</h2>
+          <h2>
+            {engine.steps
+              .filter((item) => item.action !== "summary")
+              .every((item) => engine.completed.includes(item.id))
+              ? "You’ve completed the walkthrough."
+              : "Your course, at a glance."}
+          </h2>
           <p className="panel-description">
-            Your progress is saved in this browser for your connected account.
-            You can review any lesson from the outline.
+            Your completed checks are saved separately from the lessons you
+            browse. Review any lesson from the outline; opening this summary
+            does not complete earlier steps.
           </p>
           <ul className="summary-list">
             <li>

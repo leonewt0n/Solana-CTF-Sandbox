@@ -86,11 +86,13 @@ afterEach(() => {
 });
 
 describe("learning and progress boundaries", () => {
-  it("starts with a foundation before wallet installation and gates progression", () => {
+  it("starts with a foundation and allows direct exploration without crediting skipped lessons", () => {
     const { result } = renderHook(() => useMissionEngine("anon"));
     expect(result.current.step.id).toBe("web3.why");
     act(() => result.current.navigate(ix("1.1")));
-    expect(result.current.stepIndex).toBe(0);
+    expect(result.current.stepIndex).toBe(ix("1.1"));
+    expect(result.current.completed).toEqual([]);
+    act(() => result.current.navigate(0));
     act(() => result.current.confirmManual());
     expect(result.current.passed).toBe(false);
     act(() => result.current.checkAnswer("private"));
@@ -121,20 +123,26 @@ describe("learning and progress boundaries", () => {
       signature: null,
     });
   });
-  it("rejects malformed or out-of-order saved progress", () => {
+  it("rejects malformed data and filters unknown lesson IDs", () => {
     localStorage.setItem(STORAGE_PREFIX + "anon", "{broken");
     expect(readProgress("anon")).toBeNull();
     localStorage.setItem(
       STORAGE_PREFIX + "anon",
-      JSON.stringify({ stepIndex: 99, completed: ["6.2"], signature: "x" }),
+      JSON.stringify({ stepIndex: 99, completed: ["unknown"], signature: "x" }),
     );
-    expect(readProgress("anon")).toEqual(emptyProgress());
-    expect(completeStep(emptyProgress(), "6.2")).toEqual(emptyProgress());
+    expect(readProgress("anon")).toEqual({
+      ...emptyProgress(),
+      stepIndex: STEPS.length - 1,
+    });
+    expect(completeStep(emptyProgress(), "unknown")).toEqual(emptyProgress());
   });
   it("does not restore transaction completion without a receipt", () => {
     save(walletA.toBase58(), "6.1");
-    expect(readProgress(walletA.toBase58())?.stepIndex).toBe(ix("5.1"));
-    expect(readProgress(walletA.toBase58())?.completed).toHaveLength(ix("5.1"));
+    expect(readProgress(walletA.toBase58())?.stepIndex).toBe(ix("6.1"));
+    expect(readProgress(walletA.toBase58())?.completed).not.toContain("5.1");
+    expect(readProgress(walletA.toBase58())?.completed).toContain(
+      "scam.airdrop",
+    );
   });
   it("isolates receipts on account change while keeping the current lesson view", async () => {
     save(walletA.toBase58(), "6.1", false, signature);
@@ -337,9 +345,12 @@ describe("interactive explanations", () => {
     fireEvent.click(screen.getByRole("button", { name: /Check my answer/ }));
     expect(screen.getByText("Let’s look at that again.")).toBeTruthy();
     expect(
-      (screen.getByRole("button", { name: /^Continue/ }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
+      (
+        screen.getByRole("button", {
+          name: /^Next lesson/,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
     fireEvent.click(
       screen.getByRole("radio", {
         name: /People transferring a digital asset/,
@@ -454,7 +465,7 @@ it("completes the expanded course with simulated wallet/RPC, preserving the less
   expect(readProgress(walletA.toBase58())?.completed).toHaveLength(
     STEPS.length - 1,
   );
-  fireEvent.click(screen.getByRole("button", { name: "Learn" }));
+  fireEvent.click(screen.getByRole("button", { name: "Overview" }));
   expect(
     screen.getByText(`${MISSIONS.length} / ${MISSIONS.length} modules`),
   ).toBeTruthy();

@@ -11,6 +11,10 @@ The dark neutral course interface uses larger text, compact original 3D accents,
 
 See [the frontend README](app/README.md) for commands, content sources, configuration, progress-version behavior, and verification limits. The frontend and progress API are hosted together on Cloudflare Workers, with progress stored in Cloudflare D1.
 
+## Quick review
+
+Start with the platform overview on the live site, then use its two-minute shortcuts to inspect a scam simulation, the Devnet exercise, and the explorer lesson. Every module and lesson is clickable without completing prerequisites. A public Explorer link shows the deployed teaching program without requiring the reviewer to connect a wallet. Viewing or skipping lessons does not mark their checks complete.
+
 ## Try it
 
 - **Live demo:** [Solana Learn](https://solana-learn.intelligentape.workers.dev)

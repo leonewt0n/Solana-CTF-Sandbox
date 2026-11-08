@@ -30,7 +30,7 @@ Solflare is available in the wallet picker and through a dedicated choice in the
 
 The dark neutral interface takes inspiration from Phantom’s actual wallet screens: rounded cards, grouped rows, pill controls, and restrained selection colors. Original 3D artwork appears as a small companion; technical diagrams are interactive SVG/HTML with selectable labels and text equivalents. Lesson text is 18px on desktop and 17px on mobile, with supporting text at least 14px. Module completion triggers a short celebration; reduced-motion settings disable confetti and traveling effects.
 
-Foundations need no connected wallet. Every conceptual lesson includes a locally checked decision with specific feedback and retries. Fee and scam scenarios are simulations that never request wallet signatures. The glossary and progress page work independently of wallet connection.
+Foundations need no connected wallet. Every conceptual lesson includes a locally checked decision with specific feedback and retries. Fee examples and scam previews are simulations that never request wallet signatures. Five selected scam lessons also offer explicitly enabled real-wallet practice on Devnet. The glossary and progress page work independently of wallet connection.
 
 ## Learning and progress
 
@@ -171,3 +171,11 @@ All modules, outline lessons, and next/back navigation are open without completi
 Progress version 3 and the existing record shape remain in use. Known completed lesson IDs are deduplicated into course order; they no longer need to form a contiguous prefix. The last viewed step is bounded to the course, independent of how many checks are complete. Transaction and explorer completion without a receipt is filtered out, while independent quizzes remain saved. Summary browsing does not count as an assessed step. Existing ordered records and receipts remain compatible; no database migration or reset is required.
 
 Introductory transfers filter by lesson identity, not an array slice. Merging a transfer or linked-wallet introductory learning combines completed checks rather than selecting the longer list. The shared introductory database update uses revision checks and retries so equally sized records with different completed lessons are not lost. Wallet receipts and later account-specific records keep their existing isolation boundaries.
+
+## Optional real wallet scam exercises
+
+The course lessons `scam.airdrop`, `scam.blind`, `scam.address`, and `scam.returns` offer bounded native-SOL transfer variants. `scam.message` offers a real, locally verified training-message signature. Each starts in Preview mode. To try a live exercise, open its course lesson, choose **Real wallet practice**, connect a fresh practice account, acknowledge the limits, prepare and review the request, then explicitly open the wallet prompt.
+
+Transfers send exactly **0.001 Devnet SOL**, plus a fee capped at **0.00005 SOL**, to the disclosed course training destination, without automatic refunds. Signed receipts are saved locally before broadcasting. Pending receipts block further payments until checked; account changes reset consent. Browsers need Web Locks and the wallet's applicable signing method; message verification also requires Ed25519 Web Crypto support. Unsupported environments retain Preview mode. No custom program deployment or database migration is required.
+
+The free-practice tab remains preview-only. Completing a live action does not complete a learning check or create a login. See [implementation and verification details](../design-previews/live-wallet-practice.md). Live wallet and mobile browser checks have not yet been performed.

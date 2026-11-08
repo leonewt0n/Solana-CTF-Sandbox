@@ -1,4 +1,5 @@
 import type { Mission, Step } from "./missions";
+import { LIVE_SCAMS } from "./liveScams";
 
 export type PracticeChoice = { id: string; label: string; feedback: string };
 export type ScamRequest = {
@@ -834,38 +835,42 @@ export const SCAM_LAB_MISSION: Mission = {
   description: "Inspect messages, permissions, and recovery decisions",
   icon: "shield",
   minutes: 20,
-  steps: EXTRA_SCAM_SCENARIOS.map((scenario): Step => ({
-    id: scenario.id,
-    title: scenario.title,
-    objective: scenario.objective,
-    why: scenario.setup,
-    explanation: [scenario.takeaway],
-    instructions: [
-      "Open the simulated request, inspect its details, and choose a response.",
-      "Use the feedback and clues, then answer the learning check.",
-    ],
-    expected:
-      "You can explain the risky permission or misleading claim without opening a real wallet request.",
-    safety:
-      "Training only. These buttons never request wallet signatures, submit transactions, install software, or collect recovery secrets.",
-    terms: glossary[scenario.id] ?? [],
-    troubleshooting:
-      "You can retry the simulation and the learning check. Nothing in the scenario is sent to a wallet or network.",
-    action: "quiz",
-    verification: "understanding",
-    scamScenario: scenario.id,
-    source: scenario.source,
-    quiz: {
-      question: scenario.question,
-      options: scenario.answers.map((title, index) => ({
-        id: String(index),
-        title,
-        feedback:
-          index === scenario.correct
-            ? scenario.takeaway
-            : "Revisit the request details and clues. " + scenario.takeaway,
-      })),
-      correct: String(scenario.correct),
-    },
-  })),
+  steps: EXTRA_SCAM_SCENARIOS.map(
+    (scenario): Step => ({
+      id: scenario.id,
+      title: scenario.title,
+      objective: scenario.objective,
+      why: scenario.setup,
+      explanation: [scenario.takeaway],
+      instructions: [
+        "Open the simulated request, inspect its details, and choose a response.",
+        "Use the feedback and clues, then answer the learning check.",
+      ],
+      expected:
+        "You can explain the risky permission or misleading claim without opening a real wallet request.",
+      safety: LIVE_SCAMS[scenario.id]
+        ? "Preview mode never requests wallet actions. Optional Real wallet practice is different: it requests a real training message signature or a disclosed, bounded Devnet SOL transfer. Never share recovery words or private keys."
+        : "Training only. These buttons never request wallet signatures, submit transactions, install software, or collect recovery secrets.",
+      terms: glossary[scenario.id] ?? [],
+      troubleshooting: LIVE_SCAMS[scenario.id]
+        ? "You can retry the preview and learning check without a wallet. Live wallet practice is optional. If a live transfer has a saved signature, check its receipt before trying another payment."
+        : "You can retry the simulation and the learning check. Nothing in the scenario is sent to a wallet or network.",
+      action: "quiz",
+      verification: "understanding",
+      scamScenario: scenario.id,
+      source: scenario.source,
+      quiz: {
+        question: scenario.question,
+        options: scenario.answers.map((title, index) => ({
+          id: String(index),
+          title,
+          feedback:
+            index === scenario.correct
+              ? scenario.takeaway
+              : "Revisit the request details and clues. " + scenario.takeaway,
+        })),
+        correct: String(scenario.correct),
+      },
+    }),
+  ),
 };

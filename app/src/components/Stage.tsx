@@ -8,10 +8,12 @@ import {
 } from "../engine/useMissionEngine";
 import { ActionZone } from "./ActionZone";
 import { LearningVisual } from "./LearningVisual";
+import { LessonScene, LessonExplanation } from "./LessonExperience";
+import { chapterArtwork } from "../content/presentation";
 import { Celebration } from "./Celebration";
 import { Glossary } from "./Glossary";
 import { Icon } from "./Icon";
-import { ScamSimulator } from "./ScamSimulator";
+import { ScamLesson } from "./ScamLesson";
 import { ScamPractice } from "./ScamPractice";
 import { PlatformOverview } from "./PlatformOverview";
 import { LearnerAccess } from "./LearnerAccess";
@@ -457,10 +459,10 @@ function Overview({
         </div>
         <div className="hero-art">
           <img
-            src="/illustrations/wallet-keys.png"
+            src="/illustrations/course-wallet.webp"
             alt=""
-            width="116"
-            height="116"
+            width="400"
+            height="225"
           />
           <span>
             Small steps.
@@ -529,6 +531,14 @@ function Overview({
                 disabled={engine.status === "checking"}
                 onClick={() => openModule(mission)}
               >
+                <img
+                  className="chapter-art"
+                  src={chapterArtwork(index)}
+                  alt=""
+                  width="400"
+                  height="160"
+                  loading="lazy"
+                />
                 <div className={`card-symbol tone-${index % 4}`}>
                   <Icon name={mission.icon} size={23} />
                 </div>
@@ -604,29 +614,17 @@ function Lesson({
             {step.title}
           </h1>
           <p className="lesson-objective">{step.objective}</p>
-          <section className="lesson-intro">
-            <h2>
-              {step.action === "quiz"
-                ? "Start with something familiar"
-                : "Before you begin"}
-            </h2>
-            <p>{step.why}</p>
-          </section>
           {step.scamScenario ? (
-            <ScamSimulator key={step.id} scenarioId={step.scamScenario} />
+            <ScamLesson key={step.id} scenarioId={step.scamScenario} />
           ) : (
-            step.diagram && <LearningVisual kind={step.diagram} />
-          )}{" "}
-          {step.explanation && (
-            <section
-              className="lesson-explanation"
-              aria-label="Concept explained"
-            >
-              <h2>Let’s unpack that.</h2>
-              {step.explanation.map((p) => (
-                <p key={p}>{p}</p>
-              ))}
-            </section>
+            <LessonScene key={`scene-${step.id}`} step={step} />
+          )}
+          <LessonExplanation key={`explanation-${step.id}`} step={step} />
+          {step.diagram && !step.scamScenario && (
+            <details className="extra-experiment">
+              <summary>Explore another example</summary>
+              <LearningVisual kind={step.diagram} />
+            </details>
           )}
           {step.instructions.length > 0 && (
             <section
@@ -758,9 +756,11 @@ function Lesson({
           <div className="rail-note">
             <Icon name="shield" size={17} />
             <p>
-              {step.action === "quiz"
-                ? "Make a choice. Get feedback. Try again. No wallet requests in these learning checks."
-                : "Keep your recovery phrase private. This course never needs to see it."}
+              {step.scamScenario
+                ? "Preview mode is simulated. Optional live exercises are clearly marked and require wallet approval. Learning checks stay separate."
+                : step.action === "quiz"
+                  ? "Make a choice. Get feedback. Try again. No wallet requests in these learning checks."
+                  : "Keep your recovery phrase private. This course never needs to see it."}
             </p>
           </div>
         </aside>

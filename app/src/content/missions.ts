@@ -711,7 +711,7 @@ export const MISSIONS: Mission[] = [
           "Explain your choice in your own words, then continue when the check is complete.",
         terms: [],
         troubleshooting:
-          "Explore the example above, then choose an answer. You can try again; mistakes here do not affect a wallet or move funds.",
+          "Explore the fictional preview, then answer the learning check. Preview actions move no funds. Optional Real wallet practice uses a separate, disclosed Devnet transfer; check any saved receipt before repeating it.",
         action: "quiz",
         verification: "understanding",
         diagram: "airdrop",

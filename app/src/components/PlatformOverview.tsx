@@ -55,8 +55,8 @@ export function PlatformOverview({
           <h3>Rehearse the risky moments</h3>
           <p>
             Compare messages, recipients, token permissions, and recovery
-            choices in fictional prompts. Scam exercises never ask your wallet
-            to sign.
+            choices in fictional previews. Selected course lessons also offer
+            opt-in real wallet practice with bounded Devnet actions.
           </p>
         </div>
       </div>
@@ -97,9 +97,16 @@ export function PlatformOverview({
           sends a transaction.
         </p>
         <p>
-          <strong>Simulated practice:</strong> scam prompts change only the
+          <strong>Preview mode:</strong> fictional scam prompts change only the
           training panel. They collect no recovery words and create no
           signatures, permissions, payments, or installations.
+        </p>
+        <p>
+          <strong>Live scam exercises:</strong> five course lessons optionally
+          use real wallet requests. Transfer variants send 0.001 Devnet SOL plus
+          a bounded fee to a disclosed training destination, without an
+          automatic refund. Message signing is a separate off-chain exercise.
+          Preview mode remains available without a wallet.
         </p>
         <p>
           <strong>Your learning record:</strong> completed checks and your place

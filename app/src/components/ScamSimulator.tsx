@@ -27,6 +27,13 @@ function Simulation({ scenario }: { scenario: ScamScenario }) {
       className="scam-simulator"
       aria-label={`${scenario.title} simulation`}
     >
+      <img
+        className="simulation-art"
+        src="/illustrations/safe-decisions.webp"
+        alt=""
+        width="1200"
+        height="675"
+      />
       <div className="simulation-banner">
         <Icon name="shield" size={19} />
         <strong>TRAINING SIMULATION</strong>
@@ -85,6 +92,22 @@ function Simulation({ scenario }: { scenario: ScamScenario }) {
               </div>
             ))}
           </dl>
+          <details className="evidence-inspector">
+            <summary>Inspect the source</summary>
+            <p>
+              A familiar name or a message arriving in your wallet is not proof
+              of trust. Compare the exact source with a destination you verified
+              independently before acting.
+            </p>
+          </details>
+          <details className="evidence-inspector">
+            <summary>Inspect the requested action</summary>
+            <p>
+              Compare the stated purpose above with the information or
+              permission requested. Receiving an asset does not require giving
+              away recovery words.
+            </p>
+          </details>
           <div
             className="simulation-choices"
             role="group"

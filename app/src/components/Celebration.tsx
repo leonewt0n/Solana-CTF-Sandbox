@@ -2,16 +2,22 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { MISSIONS } from "../content/missions";
 import { Icon } from "./Icon";
 export function Celebration({ completed }: { completed: string[] }) {
-  const lastCount = useRef(completed.length);
+  const previous = useRef(completed);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [name, setName] = useState<string | null>(null);
   useEffect(() => {
-    const increased = completed.length > lastCount.current;
-    lastCount.current = completed.length;
+    const before = previous.current;
+    previous.current = completed;
+    const increased = completed.length > before.length;
     const milestone = MISSIONS.find(
       (m) =>
-        m.steps.at(-1)?.id === completed.at(-1) &&
-        m.steps.at(-1)?.action !== "summary",
+        m.steps.some((s) => s.action !== "summary") &&
+        m.steps
+          .filter((s) => s.action !== "summary")
+          .every((s) => completed.includes(s.id)) &&
+        !m.steps
+          .filter((s) => s.action !== "summary")
+          .every((s) => before.includes(s.id)),
     );
     if (!increased || !milestone) return;
     if (timer.current) clearTimeout(timer.current);
